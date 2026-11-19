@@ -7,7 +7,7 @@ import pytest
 from app.core.config import Settings
 from app.domain.models import BoundingBox, DetectedPanel
 from app.evaluation import __main__ as cli
-from app.evaluation.labels import LabeledPage
+from app.evaluation.labels import LabeledPage, discover
 from app.evaluation.report import compare, to_json, to_text
 from app.evaluation.runner import evaluate
 from app.evaluation.synthetic import synthetic_pages
@@ -219,3 +219,12 @@ def test_cli_propose_writes_unverified_drafts_and_never_overwrites(
     cli.main(["--propose", str(folder)])
     assert "exists" in capsys.readouterr().out
     assert (folder / "a.labels.json").read_text() == '{"keep": "me"}'
+
+
+def test_labelled_files_get_the_automatic_real_tag(tmp_path: Path) -> None:
+    make_corpus(tmp_path / "set")
+    pages = [*discover([tmp_path / "set"]), *synthetic_pages()[:1]]
+    report = evaluate("projection", pages)
+    assert report.by_tag["real"].pages == 1
+    assert report.by_tag["synthetic"].pages == 1
+    assert "real" not in synthetic_pages()[0].tags

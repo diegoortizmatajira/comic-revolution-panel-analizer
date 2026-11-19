@@ -37,13 +37,14 @@ def evaluate(detector_name: str, pages: Sequence[LabeledPage]) -> DetectorReport
             sequence_confidence=analysis.sequence_confidence,
             whole_page_fallback=analysis.whole_page_fallback,
         )
-        results.append(score_page(page.id, page.tags, prediction, page.panels))
+        page_tags = page.tags | {"real"} if page.source == "file" else page.tags
+        results.append(score_page(page.id, page_tags, prediction, page.panels))
 
-    tags = sorted({tag for page in pages for tag in page.tags})
+    tags = sorted({tag for result in results for tag in result.tags})
     return DetectorReport(
         detector=detector_name,
         version=detector.version,
         overall=summarize(results),
-        by_tag={tag: summarize(r for r in results if tag in r.tags) for tag in tags},
+        by_tag={tag: summarize(x for x in results if tag in x.tags) for tag in tags},
         pages=tuple(results),
     )
