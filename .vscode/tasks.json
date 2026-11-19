@@ -25,6 +25,31 @@
       "detail": "Serves on any hostname (LAN) and enables the demo page. Use this for testing on other devices."
     },
     {
+      "label": "Run server (hybrid ML + demo page)",
+      "type": "shell",
+      "command": "uv run --extra ml uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000 --reload",
+      "options": {
+        "env": {
+          "PANELS_API_KEYS": "dev-key",
+          "PANELS_ENABLE_DEMO_PAGE": "true",
+          "PANELS_LOG_JSON": "false",
+          "PANELS_DETECTOR": "hybrid",
+          "PANELS_ML_MODEL": "models/best.onnx"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Will watch for changes",
+          "endsPattern": "Application startup complete"
+        }
+      },
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "detail": "Like the LAN task, but the detector is hybrid: projection first, the ONNX model in models/best.onnx when projection looks unreliable. The raw JSON in the demo page shows which one answered (\"method\")."
+    },
+    {
       "label": "Test",
       "type": "shell",
       "command": "uv run pytest",
@@ -37,6 +62,13 @@
       "command": "uv run python -m app.evaluation --verbose",
       "problemMatcher": [],
       "detail": "Scores every detector on tests/fixtures, samples/ and the synthetic pages."
+    },
+    {
+      "label": "Evaluate detectors (with ML model)",
+      "type": "shell",
+      "command": "uv run --extra ml python -m app.evaluation --corpus tests/fixtures --corpus samples --ml-model models/best.onnx --verbose",
+      "problemMatcher": [],
+      "detail": "Scores projection, classical, ml and hybrid on tests/fixtures and your local samples/. Needs models/best.onnx."
     },
     {
       "label": "Lint",
