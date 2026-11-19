@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "captions",
+    "grid",
+    "unframed-art"
+  ],
+  "notes": "Three rows of two panels. Floating caption boxes above a panel are not included. In the bottom-left panel only the framed art is labelled; the unframed figure with balloons beside it is left out.",
+  "panels": [
+    {
+      "x": 0.05641025641025641,
+      "y": 0.10544939844302902,
+      "width": 0.4666666666666667,
+      "height": 0.24911535739561216
+    },
+    {
+      "x": 0.5384615384615384,
+      "y": 0.06369426751592357,
+      "width": 0.4317948717948718,
+      "height": 0.2929936305732484
+    },
+    {
+      "x": 0.057435897435897436,
+      "y": 0.4465675866949752,
+      "width": 0.49641025641025643,
+      "height": 0.2002830856334041
+    },
+    {
+      "x": 0.5661538461538461,
+      "y": 0.3651804670912951,
+      "width": 0.40307692307692305,
+      "height": 0.283793347487615
+    },
+    {
+      "x": 0.27692307692307694,
+      "y": 0.7480537862703468,
+      "width": 0.20307692307692307,
+      "height": 0.19745222929936307
+    },
+    {
+      "x": 0.49333333333333335,
+      "y": 0.7409766454352441,
+      "width": 0.47794871794871796,
+      "height": 0.2059447983014862
+    }
+  ]
+}

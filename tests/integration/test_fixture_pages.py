@@ -39,7 +39,7 @@ def matches_ground_truth(name: str) -> bool:
     return score_page(page.id, page.tags, prediction, page.panels).correct
 
 
-PUBLIC_DOMAIN_PAGES = ["nature_boy_4.jpg", "western_fighters_6.jpg", "western_fighters_8.jpg"]
+PUBLIC_DOMAIN_PAGES = sorted(p.name for p in FIXTURES.glob("*.jpg"))
 
 
 def analyze_file(name: str, direction: ReadingDirection = ReadingDirection.LTR) -> AnalysisResult:
@@ -75,8 +75,36 @@ def test_public_domain_pages_yield_well_formed_results(
     assert_well_formed(analyze_file(name, direction))
 
 
-def test_western_fighters_8_matches_its_labels() -> None:
-    assert matches_ground_truth("western_fighters_8")
+# Pages the projection detector gets exactly right, and pages it is known to get wrong (#3).
+CORRECT_PAGES = ["western_fighters_8", "public_004", "public_005"]
+KNOWN_FAILURES = {
+    "nature_boy_4": "two bottom panels separated by a narrow gutter stay merged",
+    "western_fighters_6": "caption text sits in the gutters, so no clean row exists",
+    "public_001": "thin frames on newsprint: only 4 of 7 panels are separated",
+    "public_002": "L-shaped panel and bleeding art leave one page-sized panel",
+    "public_003": "slanted gutters and touching art leave one page-sized panel",
+}
+
+
+@pytest.mark.parametrize("name", CORRECT_PAGES)
+def test_page_matches_its_labels(name: str) -> None:
+    assert matches_ground_truth(name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param(name, marks=pytest.mark.xfail(strict=True, reason=f"{reason} (#3)"))
+        for name, reason in KNOWN_FAILURES.items()
+    ],
+)
+def test_known_failure_page_matches_its_labels(name: str) -> None:
+    assert matches_ground_truth(name)
+
+
+def test_every_fixture_page_is_accounted_for() -> None:
+    stems = {name.removesuffix(".jpg") for name in PUBLIC_DOMAIN_PAGES}
+    assert stems == set(CORRECT_PAGES) | set(KNOWN_FAILURES)
 
 
 def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
@@ -84,20 +112,6 @@ def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
     top, first_bottom, second_bottom = result.panels
     assert top.bbox.y < 100
     assert first_bottom.bbox.x > second_bottom.bbox.x
-
-
-@pytest.mark.xfail(
-    strict=True, reason="two bottom panels separated by a narrow gutter stay merged (#3)"
-)
-def test_nature_boy_4_matches_its_labels() -> None:
-    assert matches_ground_truth("nature_boy_4")
-
-
-@pytest.mark.xfail(
-    strict=True, reason="caption text sits in the gutters, so no clean row exists (#3)"
-)
-def test_western_fighters_6_matches_its_labels() -> None:
-    assert matches_ground_truth("western_fighters_6")
 
 
 # --- synthetic edge cases ---------------------------------------------------------------------

@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "irregular",
+    "l-shaped",
+    "inset"
+  ],
+  "notes": "The large lower panel is L-shaped: it wraps around the small inset panel at the bottom right, so the two boxes overlap (the inset lies inside the L-shape's box).",
+  "panels": [
+    {
+      "x": 0.03487179487179487,
+      "y": 0.025525525525525526,
+      "width": 0.46564102564102566,
+      "height": 0.3033033033033033
+    },
+    {
+      "x": 0.518974358974359,
+      "y": 0.025525525525525526,
+      "width": 0.4430769230769231,
+      "height": 0.30855855855855857
+    },
+    {
+      "x": 0.03487179487179487,
+      "y": 0.3408408408408408,
+      "width": 0.9271794871794872,
+      "height": 0.6298798798798799
+    },
+    {
+      "x": 0.5364102564102564,
+      "y": 0.746996996996997,
+      "width": 0.4256410256410256,
+      "height": 0.22372372372372373
+    }
+  ]
+}
