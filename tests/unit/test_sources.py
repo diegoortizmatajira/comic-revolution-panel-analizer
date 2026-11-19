@@ -113,3 +113,142 @@ async def test_allow_private_skips_resolution() -> None:
         httpx.MockTransport(lambda r: httpx.Response(200, content=b"ok")), allow_private=True
     )
     assert await f.fetch("http://unresolvable.local/a") == b"ok"
+
+
+class CountingResolver:
+    """Answers differently on every call, like a DNS-rebinding attacker would."""
+
+    def __init__(self, answers: list[list[str]]) -> None:
+        self._answers = answers
+        self.calls = 0
+
+    async def resolve(self, host: str, port: int) -> list[str]:
+        answer = self._answers[min(self.calls, len(self._answers) - 1)]
+        self.calls += 1
+        return answer
+
+
+async def test_connection_is_pinned_to_the_validated_ip() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"ok")
+
+    resolver = CountingResolver([["93.184.216.34"], ["10.0.0.5"]])  # second answer is internal
+    f = UrlImageFetcher(
+        max_bytes=100,
+        timeout_seconds=1,
+        max_redirects=2,
+        resolver=resolver,
+        transport=httpx.MockTransport(handler),
+    )
+    assert await f.fetch("https://example.com:8443/a.png") == b"ok"
+    (request,) = seen
+    assert request.url.host == "93.184.216.34"  # connects to the IP that was validated
+    assert request.headers["host"] == "example.com:8443"
+    assert request.extensions["sni_hostname"] == "example.com"
+    assert resolver.calls == 1  # resolved once per hop, so a later answer is never used
+
+
+async def test_http_hop_pins_without_sni() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"ok")
+
+    await fetcher(httpx.MockTransport(handler)).fetch("http://example.com/a.png")
+    assert seen[0].url.host == "93.184.216.34"
+    assert "sni_hostname" not in seen[0].extensions
+
+
+async def test_ipv6_address_is_pinned() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"ok")
+
+    f = UrlImageFetcher(
+        max_bytes=100,
+        timeout_seconds=1,
+        max_redirects=0,
+        resolver=FakeResolver({"example.com": ["2606:2800:220:1:248:1893:25c8:1946"]}),
+        transport=httpx.MockTransport(handler),
+    )
+    await f.fetch("https://example.com/a.png")
+    assert seen[0].url.host == "2606:2800:220:1:248:1893:25c8:1946"
+
+
+async def test_every_redirect_hop_is_resolved_and_pinned_again() -> None:
+    hosts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        hosts.append(request.headers["host"])
+        if request.url.path == "/a":
+            return httpx.Response(302, headers={"location": "https://example.com/b"})
+        return httpx.Response(200, content=b"ok")
+
+    resolver = CountingResolver([["93.184.216.34"]])
+    f = UrlImageFetcher(
+        max_bytes=100,
+        timeout_seconds=1,
+        max_redirects=2,
+        resolver=resolver,
+        transport=httpx.MockTransport(handler),
+    )
+    assert await f.fetch("https://example.com/a") == b"ok"
+    assert hosts == ["example.com", "example.com"]
+    assert resolver.calls == 2
+
+
+@pytest.mark.parametrize(
+    "url", ["http://127.0.0.1/a", "http://[::1]/a", "http://169.254.169.254/latest/meta-data"]
+)
+async def test_blocks_private_ip_literals_without_dns(url: str) -> None:
+    with pytest.raises(InvalidUrlError):
+        await fetcher().fetch(url)
+
+
+async def test_public_ip_literal_is_allowed() -> None:
+    f = fetcher(httpx.MockTransport(lambda r: httpx.Response(200, content=b"ok")))
+    assert await f.fetch("http://93.184.216.34/a.png") == b"ok"
+
+
+async def test_rejects_embedded_credentials() -> None:
+    with pytest.raises(InvalidUrlError, match="credentials"):
+        await fetcher().fetch("https://user:pass@example.com/a.png")
+
+
+async def test_blocks_when_any_resolved_address_is_private() -> None:
+    f = UrlImageFetcher(
+        max_bytes=100,
+        timeout_seconds=1,
+        max_redirects=0,
+        resolver=FakeResolver({"mixed.test": ["93.184.216.34", "10.0.0.5"]}),
+    )
+    with pytest.raises(InvalidUrlError):
+        await f.fetch("http://mixed.test/a")
+
+
+async def test_empty_resolution_is_a_fetch_error() -> None:
+    f = UrlImageFetcher(
+        max_bytes=100,
+        timeout_seconds=1,
+        max_redirects=0,
+        resolver=FakeResolver({"empty.test": []}),
+    )
+    with pytest.raises(ImageFetchError):
+        await f.fetch("http://empty.test/a")
+
+
+async def test_sends_descriptive_user_agent() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"ok")
+
+    await fetcher(httpx.MockTransport(handler)).fetch("https://example.com/a.png")
+    assert seen[0].headers["user-agent"].startswith("comic-panel-analyzer/")

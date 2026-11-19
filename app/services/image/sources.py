@@ -7,6 +7,7 @@ import base64
 import binascii
 import ipaddress
 import socket
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlsplit
 
@@ -22,6 +23,10 @@ from app.core.errors import (
 
 if TYPE_CHECKING:
     from app.domain.ports import HostResolver
+
+
+# Many image hosts reject the default httpx agent; identify ourselves instead.
+USER_AGENT = "comic-panel-analyzer/0.1"
 
 
 def decode_base64_image(value: str, max_bytes: int) -> bytes:
@@ -75,13 +80,18 @@ class UrlImageFetcher:
 
     async def fetch(self, url: str) -> bytes:
         async with httpx.AsyncClient(
-            timeout=self._timeout, follow_redirects=False, transport=self._transport
+            timeout=self._timeout,
+            follow_redirects=False,
+            transport=self._transport,
+            headers={"User-Agent": USER_AGENT, "Accept": "image/*"},
         ) as client:
             current = url
             for _ in range(self._max_redirects + 1):
-                await self._validate(current)
+                target = await self._prepare(current)
                 try:
-                    async with client.stream("GET", current) as response:
+                    async with client.stream(
+                        "GET", target.url, headers=target.headers, extensions=target.extensions
+                    ) as response:
                         if response.is_redirect:
                             location = response.headers.get("location")
                             if not location:
@@ -113,15 +123,55 @@ class UrlImageFetcher:
             chunks.append(chunk)
         return b"".join(chunks)
 
-    async def _validate(self, url: str) -> None:
+    async def _prepare(self, url: str) -> _Target:
+        """Validate a hop and pin it to the address that was validated.
+
+        The hostname is resolved exactly once; the connection then goes to that IP, with
+        the original Host header and TLS server name, so a second (different) DNS answer
+        cannot redirect the request to an internal address (DNS rebinding).
+        """
         parts = urlsplit(url)
         if parts.scheme not in {"http", "https"} or not parts.hostname:
             msg = "Only absolute http(s) URLs are allowed."
             raise InvalidUrlError(msg)
+        if parts.username is not None or parts.password is not None:
+            msg = "URLs with embedded credentials are not allowed."
+            raise InvalidUrlError(msg)
+        host = parts.hostname
         if self._allow_private:
-            return
+            return _Target(url=url)
+
+        try:
+            literal = ipaddress.ip_address(host)
+        except ValueError:
+            literal = None
+        if literal is not None:
+            _require_public(literal)
+            return _Target(url=url)
+
         port = parts.port or (443 if parts.scheme == "https" else 80)
-        for address in await self._resolver.resolve(parts.hostname, port):
-            if not ipaddress.ip_address(address).is_global:
-                msg = "The URL points to a non-public address."
-                raise InvalidUrlError(msg)
+        addresses = [ipaddress.ip_address(a) for a in await self._resolver.resolve(host, port)]
+        if not addresses:
+            msg = "Could not resolve the image host."
+            raise ImageFetchError(msg, {"host": host})
+        for address in addresses:
+            _require_public(address)
+
+        return _Target(
+            url=str(httpx.URL(url).copy_with(host=str(addresses[0]))),
+            headers={"Host": f"{host}:{parts.port}" if parts.port else host},
+            extensions={"sni_hostname": host} if parts.scheme == "https" else {},
+        )
+
+
+def _require_public(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+    if not address.is_global:
+        msg = "The URL points to a non-public address."
+        raise InvalidUrlError(msg)
+
+
+@dataclass(frozen=True, slots=True)
+class _Target:
+    url: str
+    headers: dict[str, str] = field(default_factory=dict)
+    extensions: dict[str, str] = field(default_factory=dict)

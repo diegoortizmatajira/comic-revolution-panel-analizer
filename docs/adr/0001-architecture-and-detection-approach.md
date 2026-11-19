@@ -28,6 +28,7 @@
   possible follow-up.
 - **Security.** API keys (compared by SHA-256 digest in constant time), in-memory
   sliding-window rate limit (single process; replace with a shared store to scale out),
-  SSRF validation on every redirect hop. Known gap: DNS is resolved for validation and
-  again by the HTTP client, so a DNS-rebinding window remains; pin the resolved IP
-  before production use.
+  SSRF validation on every redirect hop. Each hop resolves the hostname once, rejects the
+  request if any answer is non-public, then connects to that validated IP (Host header and
+  TLS server name preserved), so a second, different DNS answer cannot redirect the request
+  (DNS rebinding). Embedded URL credentials and private IP literals are rejected.
