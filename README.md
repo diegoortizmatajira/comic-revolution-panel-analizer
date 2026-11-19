@@ -13,7 +13,8 @@ uv run uvicorn app.main:app_factory --factory --reload
 
 Demo page (upload/paste a page and see numbered panel overlays): set
 `PANELS_ENABLE_DEMO_PAGE=true` and open http://localhost:8000/demo. Images placed in
-`samples/` (git-ignored) show up in its "Sample pages" dropdown.
+`samples/` (git-ignored, your own pages) and the committed `tests/fixtures/` pages show up in its
+"Sample pages" dropdown, in separate groups.
 
 Interactive docs: http://localhost:8000/docs · OpenAPI: `/openapi.json` · Health: `/healthz`
 
@@ -61,6 +62,63 @@ Response:
 
 `confidence` is per-panel detection quality; `sequence_confidence` is how unambiguous the
 reading order is (1.0 = every panel separated by clean gutters).
+
+### Client examples
+
+Python (`pip install httpx`):
+
+```python
+import httpx
+
+API = "http://localhost:8000"
+HEADERS = {"X-API-Key": "change-me"}
+
+# Upload a file
+with open("page.png", "rb") as f:
+    result = httpx.post(
+        f"{API}/v1/panels/analyze/upload",
+        headers=HEADERS,
+        files={"file": ("page.png", f, "image/png")},
+        data={"reading_direction": "ltr"},
+        timeout=30,
+    ).json()
+
+# Or let the service download it
+result = httpx.post(
+    f"{API}/v1/panels/analyze",
+    headers=HEADERS,
+    json={"image": {"url": "https://example.com/page.png"}},
+    timeout=30,
+).json()
+
+if result["whole_page_fallback"] or result["sequence_confidence"] < 0.6:
+    print("not reliable: show the whole page")
+for panel in result["panels"]:
+    b = panel["bbox_normalized"]  # fractions of the page, independent of image size
+    print(panel["order"], b["x"], b["y"], b["width"], b["height"])
+```
+
+JavaScript (browser or Node 18+):
+
+```js
+const API = "http://localhost:8000";
+
+async function analyze(file, readingDirection = "ltr") {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("reading_direction", readingDirection);
+  const response = await fetch(`${API}/v1/panels/analyze/upload`, {
+    method: "POST",
+    headers: { "X-API-Key": "change-me" },
+    body: form,
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(`${body.code}: ${body.message}`);
+  return body.panels; // ordered; use bbox_normalized to position a zoom/pan viewport
+}
+```
+
+Do not ship the API key in a public web page; call the service from your own backend.
 
 `version` identifies the detector and ordering algorithms that produced the result. Compare it
 for equality: cache results by `(image, version)` and recompute when it changes.
