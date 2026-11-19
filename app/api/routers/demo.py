@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from app.api.deps import ContainerDep  # noqa: TC001
 
@@ -28,15 +30,34 @@ async def demo() -> FileResponse:
     return FileResponse(_PAGE, media_type="text/html")
 
 
+class SampleOut(BaseModel):
+    source: Literal["samples", "fixtures"]
+    name: str
+
+
+def _folders(container: ContainerDep) -> dict[str, Path]:
+    return {
+        "samples": container.settings.samples_dir,
+        "fixtures": container.settings.fixtures_dir,
+    }
+
+
 @router.get("/demo/samples")
-async def list_samples(container: ContainerDep) -> list[str]:
-    return [p.name for p in _sample_files(container.settings.samples_dir)]
+async def list_samples(container: ContainerDep) -> list[SampleOut]:
+    """Local pages (`samples`, git-ignored) followed by the committed test fixtures."""
+    return [
+        SampleOut(source=source, name=path.name)
+        for source, folder in _folders(container).items()
+        for path in _sample_files(folder)
+    ]
 
 
-@router.get("/demo/samples/{name}")
-async def get_sample(name: str, container: ContainerDep) -> FileResponse:
+@router.get("/demo/samples/{source}/{name}")
+async def get_sample(source: str, name: str, container: ContainerDep) -> FileResponse:
     # Match against the listing instead of building a path from user input (no traversal).
-    for path in _sample_files(container.settings.samples_dir):
-        if path.name == name:
-            return FileResponse(path)
+    folder = _folders(container).get(source)
+    if folder is not None:
+        for path in _sample_files(folder):
+            if path.name == name:
+                return FileResponse(path)
     raise HTTPException(status_code=404, detail="Sample not found.")

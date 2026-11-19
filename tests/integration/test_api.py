@@ -156,30 +156,41 @@ def test_demo_page_served_when_enabled() -> None:
     assert "/v1/panels/analyze/upload" in response.text
 
 
-def test_demo_samples_list_and_serve(tmp_path: Path, page_2x2: bytes) -> None:
-    (tmp_path / "a.png").write_bytes(page_2x2)
-    (tmp_path / "notes.txt").write_text("ignore me")
-    (tmp_path / ".gitignore").write_text("*")
-    settings = Settings(
-        api_keys=KEY, enable_demo_page=True, samples_dir=tmp_path, log_json=False, _env_file=None
-    )
-    with TestClient(create_app(settings)) as c:
-        assert c.get("/demo/samples").json() == ["a.png"]
-        served = c.get("/demo/samples/a.png")
-        assert served.status_code == 200
-        assert served.content == page_2x2
-        assert c.get("/demo/samples/notes.txt").status_code == 404
-        assert c.get("/demo/samples/..%2Fsecret.png").status_code == 404
-
-
-def test_demo_samples_missing_folder_is_empty(tmp_path: Path) -> None:
-    settings = Settings(
+def demo_settings(samples: Path, fixtures: Path) -> Settings:
+    return Settings(
         api_keys=KEY,
         enable_demo_page=True,
-        samples_dir=tmp_path / "nope",
+        samples_dir=samples,
+        fixtures_dir=fixtures,
         log_json=False,
         _env_file=None,
     )
+
+
+def test_demo_lists_and_serves_samples_and_fixtures(tmp_path: Path, page_2x2: bytes) -> None:
+    samples, fixtures = tmp_path / "samples", tmp_path / "fixtures"
+    samples.mkdir()
+    fixtures.mkdir()
+    (samples / "a.png").write_bytes(page_2x2)
+    (fixtures / "a.png").write_bytes(b"fixture-bytes")  # same name, different source
+    (fixtures / "b.jpg").write_bytes(b"jpg")
+    (samples / "notes.txt").write_text("ignore me")
+    (samples / ".gitignore").write_text("*")
+    with TestClient(create_app(demo_settings(samples, fixtures))) as c:
+        assert c.get("/demo/samples").json() == [
+            {"source": "samples", "name": "a.png"},
+            {"source": "fixtures", "name": "a.png"},
+            {"source": "fixtures", "name": "b.jpg"},
+        ]
+        assert c.get("/demo/samples/samples/a.png").content == page_2x2
+        assert c.get("/demo/samples/fixtures/a.png").content == b"fixture-bytes"
+        assert c.get("/demo/samples/samples/notes.txt").status_code == 404
+        assert c.get("/demo/samples/nope/a.png").status_code == 404
+        assert c.get("/demo/samples/samples/..%2Fsecret.png").status_code == 404
+
+
+def test_demo_samples_missing_folders_are_empty(tmp_path: Path) -> None:
+    settings = demo_settings(tmp_path / "nope", tmp_path / "nada")
     with TestClient(create_app(settings)) as c:
         assert c.get("/demo/samples").json() == []
 

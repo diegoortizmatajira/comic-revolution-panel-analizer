@@ -126,18 +126,23 @@ async function run() {
 
 async function loadSamples() {
   try {
-    const names = await (await fetch('/demo/samples')).json();
-    if (!names.length) return;
+    const items = await (await fetch('/demo/samples')).json();
+    if (!items.length) return;
+    const groups = { samples: 'Local samples', fixtures: 'Test fixtures' };
     $('sample').innerHTML = '<option value="">Select a sample…</option>' +
-      names.map(n => `<option>${n}</option>`).join('');
+      Object.entries(groups).map(([source, label]) => {
+        const options = items.filter(i => i.source === source)
+          .map(i => `<option value="${source}/${encodeURIComponent(i.name)}">${i.name}</option>`);
+        return options.length ? `<optgroup label="${label}">${options.join('')}</optgroup>` : '';
+      }).join('');
   } catch {}
 }
 $('sample').onchange = async (e) => {
   if (!e.target.value) return;
-  const res = await fetch('/demo/samples/' + encodeURIComponent(e.target.value));
+  const res = await fetch('/demo/samples/' + e.target.value);
   if (!res.ok) { setStatus('Could not load sample.', 'err'); return; }
   const b = await res.blob();
-  b.name = e.target.value;
+  b.name = decodeURIComponent(e.target.value.split('/')[1]);
   loadBlob(b);
 };
 loadSamples();

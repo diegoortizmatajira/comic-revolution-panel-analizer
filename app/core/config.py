@@ -24,7 +24,8 @@ class Settings(BaseSettings):
     allow_private_urls: bool = False  # development only
 
     enable_demo_page: bool = False  # serves /demo, a developer test page
-    samples_dir: Path = Path("samples")  # images listed by the demo page
+    samples_dir: Path = Path("samples")  # local pages listed by the demo page
+    fixtures_dir: Path = Path("tests/fixtures")  # committed test pages, also listed
 
     detector: Literal["projection", "classical"] = "projection"
 
