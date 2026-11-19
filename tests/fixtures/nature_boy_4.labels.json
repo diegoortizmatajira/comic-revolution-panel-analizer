@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "title-banner",
+    "narrow-gutter"
+  ],
+  "notes": "Title banner above the frame is not a panel. Caption box of the bottom-right panel overlaps the lower edge of the big panel; its top is taken at the frame line.",
+  "panels": [
+    {
+      "x": 0.03500583430571762,
+      "y": 0.21986970684039087,
+      "width": 0.9019836639439907,
+      "height": 0.3965798045602606
+    },
+    {
+      "x": 0.03500583430571762,
+      "y": 0.6612377850162866,
+      "width": 0.38739789964994165,
+      "height": 0.2956026058631922
+    },
+    {
+      "x": 0.43990665110851807,
+      "y": 0.6164495114006515,
+      "width": 0.4970828471411902,
+      "height": 0.34039087947882735
+    }
+  ]
+}

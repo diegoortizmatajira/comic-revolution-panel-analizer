@@ -10,6 +10,8 @@ import cv2
 import numpy as np
 import pytest
 from app.domain.models import AnalysisResult, ImageSize, ReadingDirection
+from app.evaluation.labels import LabeledPage, discover
+from app.evaluation.metrics import Prediction, score_page
 from app.services.analyzer import PanelAnalyzer
 from app.services.detection.projection import ProjectionPanelDetector
 from app.services.image.decoder import DecodedImage, ImageLimits, decode_image
@@ -18,6 +20,24 @@ from app.services.ordering.xy_cut import XYCutOrdering
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 LIMITS = ImageLimits(max_bytes=10_000_000, max_pixels=40_000_000)
 analyzer = PanelAnalyzer(ProjectionPanelDetector(), XYCutOrdering())
+
+
+def labelled(name: str) -> LabeledPage:
+    """A committed fixture page with its hand-made ground truth (``*.labels.json``)."""
+    return next(p for p in discover([FIXTURES]) if p.id == f"fixtures/{name}")
+
+
+def matches_ground_truth(name: str) -> bool:
+    """Every labelled panel found (IoU >= 0.5), nothing extra, same reading order."""
+    page = labelled(name)
+    result = analyzer.analyze(page.image, page.direction)
+    prediction = Prediction(
+        boxes=tuple(p.normalized_bbox for p in result.panels),
+        sequence_confidence=result.sequence_confidence,
+        whole_page_fallback=result.whole_page_fallback,
+    )
+    return score_page(page.id, page.tags, prediction, page.panels).correct
+
 
 PUBLIC_DOMAIN_PAGES = ["nature_boy_4.jpg", "western_fighters_6.jpg", "western_fighters_8.jpg"]
 
@@ -55,14 +75,8 @@ def test_public_domain_pages_yield_well_formed_results(
     assert_well_formed(analyze_file(name, direction))
 
 
-def test_western_fighters_8_separates_top_and_both_bottom_panels() -> None:
-    result = analyze_file("western_fighters_8.jpg")
-    top, bottom_left, bottom_right = result.panels
-    assert top.bbox.y < 100
-    assert bottom_left.bbox.x < 50
-    assert bottom_right.bbox.x > 400
-    assert abs(bottom_left.bbox.y - bottom_right.bbox.y) < 20
-    assert result.sequence_confidence == 1.0
+def test_western_fighters_8_matches_its_labels() -> None:
+    assert matches_ground_truth("western_fighters_8")
 
 
 def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
@@ -72,16 +86,18 @@ def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
     assert first_bottom.bbox.x > second_bottom.bbox.x
 
 
-@pytest.mark.xfail(strict=True, reason="two bottom panels separated by a narrow gutter stay merged")
-def test_nature_boy_4_finds_the_three_panels() -> None:
-    assert len(analyze_file("nature_boy_4.jpg").panels) >= 3
+@pytest.mark.xfail(
+    strict=True, reason="two bottom panels separated by a narrow gutter stay merged (#3)"
+)
+def test_nature_boy_4_matches_its_labels() -> None:
+    assert matches_ground_truth("nature_boy_4")
 
 
 @pytest.mark.xfail(
-    strict=True, reason="borderless panel fading into the paper defeats gutter cutting"
+    strict=True, reason="caption text sits in the gutters, so no clean row exists (#3)"
 )
-def test_western_fighters_6_finds_the_three_panels() -> None:
-    assert len(analyze_file("western_fighters_6.jpg").panels) >= 3
+def test_western_fighters_6_matches_its_labels() -> None:
+    assert matches_ground_truth("western_fighters_6")
 
 
 # --- synthetic edge cases ---------------------------------------------------------------------

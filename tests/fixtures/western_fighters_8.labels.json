@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "title-banner",
+    "captions",
+    "circular-inset"
+  ],
+  "notes": "Title lettering is not a panel; the caption strip at the bottom of the big panel is inside its frame. The bottom-right panel is a square frame holding a circular inset.",
+  "panels": [
+    {
+      "x": 0.02564102564102564,
+      "y": 0.19183965640658554,
+      "width": 0.9097435897435897,
+      "height": 0.46313528990694347
+    },
+    {
+      "x": 0.02564102564102564,
+      "y": 0.7136721546170365,
+      "width": 0.4379487179487179,
+      "height": 0.24194702934860415
+    },
+    {
+      "x": 0.48717948717948717,
+      "y": 0.7136721546170365,
+      "width": 0.4512820512820513,
+      "height": 0.24194702934860415
+    }
+  ]
+}

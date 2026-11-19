@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "title-banner",
+    "captions-in-gutter"
+  ],
+  "notes": "Title lettering is not a panel. Caption text sits between the top panel and the bottom row, so no clean horizontal gutter exists.",
+  "panels": [
+    {
+      "x": 0.043076923076923075,
+      "y": 0.20916481892091648,
+      "width": 0.9025641025641026,
+      "height": 0.41759053954175906
+    },
+    {
+      "x": 0.04512820512820513,
+      "y": 0.6836659275683666,
+      "width": 0.4266666666666667,
+      "height": 0.2697708795269771
+    },
+    {
+      "x": 0.48205128205128206,
+      "y": 0.6415373244641537,
+      "width": 0.4717948717948718,
+      "height": 0.31189948263118994
+    }
+  ]
+}
