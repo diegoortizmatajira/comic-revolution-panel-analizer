@@ -19,10 +19,23 @@ class PanelDetector(Protocol):
     @property
     def name(self) -> str: ...
 
+    @property
+    def version(self) -> str:
+        """Bump whenever a change could alter the detector's output."""
+        ...
+
     def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]: ...
 
 
 class ReadingOrderStrategy(Protocol):
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def version(self) -> str:
+        """Bump whenever a change could alter the ordering or its confidence."""
+        ...
+
     def order(
         self, panels: Sequence[DetectedPanel], direction: ReadingDirection
     ) -> OrderingResult: ...

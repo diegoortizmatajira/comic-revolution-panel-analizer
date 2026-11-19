@@ -19,6 +19,9 @@ AMBIGUITY_PENALTY = 0.5
 
 
 class XYCutOrdering:
+    name = "xycut"
+    version = "1"
+
     def order(self, panels: Sequence[DetectedPanel], direction: ReadingDirection) -> OrderingResult:
         if not panels:
             return OrderingResult(panels=(), confidence=1.0)

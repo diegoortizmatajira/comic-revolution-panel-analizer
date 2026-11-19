@@ -52,13 +52,22 @@ Response:
      "confidence": 1.0}
   ],
   "sequence_confidence": 1.0,
-  "method": "classical",
+  "method": "projection",
+  "version": "projection@1+xycut@1",
+  "whole_page_fallback": false,
   "warnings": []
 }
 ```
 
 `confidence` is per-panel detection quality; `sequence_confidence` is how unambiguous the
 reading order is (1.0 = every panel separated by clean gutters).
+
+`version` identifies the detector and ordering algorithms that produced the result. Compare it
+for equality: cache results by `(image, version)` and recompute when it changes.
+
+When no panel is found the API still returns one panel covering the whole page, with
+`confidence` and `sequence_confidence` of 0.1, `whole_page_fallback: true` and a warning, so
+a reader can fall back to showing the page. A single detected panel is returned as is.
 
 `method` names the detector that produced the result. Choose it with `PANELS_DETECTOR`:
 `projection` (default; gutter-based, works on colour) or `classical` (contour-based).

@@ -34,6 +34,7 @@ _Region = tuple[int, int, int, int]  # y0, y1, x0, x1 (end-exclusive)
 
 class ProjectionPanelDetector:
     name = "projection"
+    version = "1"
 
     def __init__(  # noqa: PLR0913
         self,

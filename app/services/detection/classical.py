@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 class ClassicalPanelDetector:
     name = "classical"
+    version = "1"
 
     def __init__(
         self,

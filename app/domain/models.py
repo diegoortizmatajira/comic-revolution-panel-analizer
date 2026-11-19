@@ -101,4 +101,6 @@ class AnalysisResult:
     panels: tuple[OrderedPanel, ...]
     sequence_confidence: float
     method: str
+    version: str
+    whole_page_fallback: bool = False
     warnings: tuple[str, ...] = field(default_factory=tuple)

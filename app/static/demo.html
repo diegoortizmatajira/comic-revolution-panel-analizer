@@ -118,7 +118,7 @@ async function run() {
     $('json').textContent = JSON.stringify(body, null, 2);
     if (!res.ok) { result = null; draw(); setStatus(`${res.status} ${body.code}: ${body.message}`, 'err'); return; }
     result = body; draw();
-    const lines = [`${body.panels.length} panels · sequence confidence ${body.sequence_confidence.toFixed(2)} · ${body.method}`];
+    const lines = [`${body.panels.length} panels · sequence confidence ${body.sequence_confidence.toFixed(2)} · ${body.version}` + (body.whole_page_fallback ? ' · whole-page fallback' : '')];
     setStatus(lines.concat(body.warnings.map(w => '⚠ ' + w)).join('\n'), body.warnings.length ? 'warn' : '');
   } catch (e) { setStatus('Request failed: ' + e.message, 'err'); }
   finally { $('run').disabled = false; }

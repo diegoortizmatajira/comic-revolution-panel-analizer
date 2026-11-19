@@ -48,6 +48,8 @@ def assert_four_panels(body: dict[str, Any], direction: str = "ltr") -> None:
     assert [p["order"] for p in body["panels"]] == [1, 2, 3, 4]
     assert body["sequence_confidence"] == 1.0
     assert body["method"] == "projection"
+    assert body["version"] == "projection@1+xycut@1"
+    assert body["whole_page_fallback"] is False
     first = body["panels"][0]
     assert first["bbox"] == {"x": 40, "y": 40, "width": 340, "height": 540}
     assert first["bbox_normalized"]["x"] == pytest.approx(0.05)
@@ -189,3 +191,17 @@ def test_detector_is_selectable_by_setting(page_2x2: bytes) -> None:
             "/v1/panels/analyze/upload", files={"file": ("p.png", page_2x2)}, headers=HEADERS
         )
     assert response.json()["method"] == "classical"
+
+
+def test_blank_page_returns_whole_page_fallback(client: TestClient) -> None:
+    blank = make_page([], size=(300, 400))
+    response = client.post(
+        "/v1/panels/analyze/upload", files={"file": ("blank.png", blank)}, headers=HEADERS
+    )
+    body = response.json()
+    assert response.status_code == 200
+    assert body["whole_page_fallback"] is True
+    assert len(body["panels"]) == 1
+    assert body["panels"][0]["bbox"] == {"x": 0, "y": 0, "width": 300, "height": 400}
+    assert body["panels"][0]["bbox_normalized"]["width"] == 1.0
+    assert body["sequence_confidence"] == 0.1

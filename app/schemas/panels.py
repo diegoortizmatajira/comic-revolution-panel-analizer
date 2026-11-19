@@ -74,6 +74,13 @@ class AnalyzeResponse(BaseModel):
     panels: list[PanelOut]
     sequence_confidence: UnitInterval
     method: str
+    version: str = Field(
+        description="Opaque analysis version (detector + ordering). Results are comparable, and "
+        "safe to cache, only while this value is unchanged."
+    )
+    whole_page_fallback: bool = Field(
+        description="True when nothing was detected and `panels` holds one whole-page stand-in."
+    )
     warnings: list[str]
 
     @classmethod
@@ -98,6 +105,8 @@ class AnalyzeResponse(BaseModel):
             ],
             sequence_confidence=result.sequence_confidence,
             method=result.method,
+            version=result.version,
+            whole_page_fallback=result.whole_page_fallback,
             warnings=list(result.warnings),
         )
 
