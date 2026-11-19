@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import cv2
 import numpy as np
 
 from app.domain.models import BoundingBox, DetectedPanel, Detection
+from app.services.detection.content import content_mask
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -74,31 +74,7 @@ class ProjectionPanelDetector:
         return Detection(panels=tuple(panels), method=self.name)
 
     def _content_mask(self, page: NDArray[np.uint8]) -> Mask:
-        background = self._estimate_background(page)
-        distance = np.linalg.norm(page.astype(np.float32) - background, axis=2)
-        mask = (distance > self._tolerance).astype(np.uint8)
-        mask = cv2.medianBlur(mask, 3)  # drop isolated noise pixels (JPEG/WebP artifacts)
-        return np.asarray(mask, dtype=np.bool_)
-
-    def _estimate_background(self, page: NDArray[np.uint8]) -> NDArray[np.float32]:
-        height, width = page.shape[:2]
-        t = max(1, int(min(height, width) * self._border_fraction))
-        border = np.concatenate(
-            [
-                page[:t].reshape(-1, 3),
-                page[-t:].reshape(-1, 3),
-                page[:, :t].reshape(-1, 3),
-                page[:, -t:].reshape(-1, 3),
-            ]
-        )
-        # Dominant colour, not the median: art that bleeds off the page edge must not win.
-        bins = (
-            (border[:, 0].astype(np.int32) >> 4) * 256
-            + (border[:, 1].astype(np.int32) >> 4) * 16
-            + (border[:, 2].astype(np.int32) >> 4)
-        )
-        dominant = int(np.bincount(bins).argmax())
-        return np.asarray(np.median(border[bins == dominant], axis=0), dtype=np.float32)
+        return content_mask(page, self._tolerance, self._border_fraction)
 
     def _split(self, mask: Mask, region: _Region, depth: int, out: list[_Region]) -> None:
         y0, y1, x0, x1 = region

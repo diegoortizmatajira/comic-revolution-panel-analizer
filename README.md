@@ -134,6 +134,17 @@ Both struggle when panels have no gutter between them, when gutters are slanted,
 dense pages where balloons cross gutters; those pages return fewer, larger panels, and
 a warning when only one is found.
 
+### Edge snapping (optional)
+
+Detectors sometimes cut a panel edge through a balloon or caption. Set `PANELS_REFINE_EDGES=true`
+to run a post-processing step after any detector: each edge that cuts through ink moves outward
+until it reaches a clean gutter. Where balloons sit in the gap between two panels with no clean
+gutter, each panel claims only the blobs that touch its own edge. It only ever grows a box, by at most 15% of the page side (`PANELS_REFINE_MAX_EXPAND`), and
+leaves an edge alone when no gutter is found in reach or a neighbouring panel is in the way.
+`version` then includes `edge-snap@<n>`. Score it with `python -m app.evaluation --refine-edges`.
+Labels in the corpus are frame-tight, so it lowers strict (IoU 0.75) scores even when the grown
+box is the more useful one (see docs/evaluation.md).
+
 ### Optional ML detector
 
 The `ml` and `hybrid` detectors run a YOLO-style ONNX panel model. **No weights are included**:

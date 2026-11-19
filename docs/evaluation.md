@@ -47,6 +47,19 @@ uv run python -m app.evaluation --corpus tests/fixtures --ml-model /path/to/pane
 Keep the weights outside the repository (`/models/` is git-ignored). Results for the model tried so
 far are in [ADR 0002](adr/0002-optional-ml-detector.md).
 
+## Scoring the edge refiner
+
+`--refine-edges` applies the edge-snapping refiner after each detector. The labels in the corpus are
+frame-tight: balloons and captions that hang outside a panel's frame are not part of the label.
+The refiner's job is the opposite, to keep those balloons inside the box, so on open-frame pages it
+moves boxes away from the labels and strict scores drop. With `projection` on the committed
+corpus: f1@50 0.824 to 0.818, f1@75 0.721 to 0.667; `classical` f1@75 0.418 to 0.411. A few pages
+(for example `moon-mullings-003-10` and `-17`) grow by 100 to 180 px to include balloons above
+the frame.
+
+IoU cannot reward "no content is cropped", so judge the refiner by looking at the boxes, not by
+f1@75. A truth-coverage metric (share of each labelled box covered) would be the fair number.
+
 ## Label format
 
 A labelled page is an image plus a sibling `<name>.labels.json`:

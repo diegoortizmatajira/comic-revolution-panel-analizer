@@ -34,7 +34,8 @@
           "PANELS_ENABLE_DEMO_PAGE": "true",
           "PANELS_LOG_JSON": "false",
           "PANELS_DETECTOR": "hybrid",
-          "PANELS_ML_MODEL": "models/best.onnx"
+          "PANELS_ML_MODEL": "models/best.onnx",
+          "PANELS_REFINE_EDGES": "true"
         }
       },
       "isBackground": true,

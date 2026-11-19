@@ -8,7 +8,7 @@ from app.domain.models import AnalysisResult, BoundingBox, NormalizedBox, Ordere
 
 if TYPE_CHECKING:
     from app.domain.models import ReadingDirection
-    from app.domain.ports import PanelDetector, ReadingOrderStrategy
+    from app.domain.ports import PanelDetector, PanelRefiner, ReadingOrderStrategy
     from app.services.image.decoder import DecodedImage
 
 LOW_SEQUENCE_CONFIDENCE = 0.6
@@ -17,13 +17,22 @@ FALLBACK_CONFIDENCE = 0.1
 
 
 class PanelAnalyzer:
-    def __init__(self, detector: PanelDetector, ordering: ReadingOrderStrategy) -> None:
+    def __init__(
+        self,
+        detector: PanelDetector,
+        ordering: ReadingOrderStrategy,
+        refiner: PanelRefiner | None = None,
+    ) -> None:
         self._detector = detector
         self._ordering = ordering
+        self._refiner = refiner
 
     def analyze(self, image: DecodedImage, direction: ReadingDirection) -> AnalysisResult:
         detection = self._detector.detect(image.pixels)
-        ordering = self._ordering.order(detection.panels, direction)
+        found = detection.panels
+        if self._refiner is not None:
+            found = self._refiner.refine(image.pixels, found)
+        ordering = self._ordering.order(found, direction)
 
         panels = tuple(
             OrderedPanel(
@@ -66,10 +75,14 @@ class PanelAnalyzer:
             panels=panels,
             sequence_confidence=sequence_confidence,
             method=detection.method,
-            version=(
-                f"{self._detector.name}@{self._detector.version}"
-                f"+{self._ordering.name}@{self._ordering.version}"
-            ),
+            version=self._version(),
             whole_page_fallback=fallback,
             warnings=tuple(warnings),
         )
+
+    def _version(self) -> str:
+        parts = [f"{self._detector.name}@{self._detector.version}"]
+        if self._refiner is not None:
+            parts.append(f"{self._refiner.name}@{self._refiner.version}")
+        parts.append(f"{self._ordering.name}@{self._ordering.version}")
+        return "+".join(parts)

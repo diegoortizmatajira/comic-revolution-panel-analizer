@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from app.evaluation.metrics import PageResult, Prediction, Summary, score_page, summarize
 from app.services.analyzer import PanelAnalyzer
+from app.services.detection.refine import EdgeSnapRefiner
 from app.services.detection.registry import build_detector
 from app.services.ordering.xy_cut import XYCutOrdering
 
@@ -27,11 +28,15 @@ class DetectorReport:
 
 
 def evaluate(
-    detector_name: str, pages: Sequence[LabeledPage], ml: MlConfig | None = None
+    detector_name: str,
+    pages: Sequence[LabeledPage],
+    ml: MlConfig | None = None,
+    *,
+    refine_edges: bool = False,
 ) -> DetectorReport:
     """Score one detector through the same analyzer and ordering the API uses."""
     detector = build_detector(detector_name, ml)
-    analyzer = PanelAnalyzer(detector, XYCutOrdering())
+    analyzer = PanelAnalyzer(detector, XYCutOrdering(), EdgeSnapRefiner() if refine_edges else None)
     results: list[PageResult] = []
     for page in pages:
         analysis = analyzer.analyze(page.image, page.direction)

@@ -27,6 +27,22 @@ class PanelDetector(Protocol):
     def detect(self, page: NDArray[np.uint8]) -> Detection: ...
 
 
+class PanelRefiner(Protocol):
+    """Adjusts the boxes a detector found, using the page pixels (e.g. snapping edges)."""
+
+    @property
+    def name(self) -> str: ...
+
+    @property
+    def version(self) -> str:
+        """Bump whenever a change could alter the refined boxes."""
+        ...
+
+    def refine(
+        self, page: NDArray[np.uint8], panels: Sequence[DetectedPanel]
+    ) -> tuple[DetectedPanel, ...]: ...
+
+
 class ReadingOrderStrategy(Protocol):
     @property
     def name(self) -> str: ...

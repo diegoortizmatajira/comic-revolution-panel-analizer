@@ -67,6 +67,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="also use draft labels that are not marked verified",
     )
+    p.add_argument(
+        "--refine-edges",
+        action="store_true",
+        help="apply the edge-snapping refiner after every detector",
+    )
     p.add_argument("--verbose", action="store_true", help="list every page")
     p.add_argument("--json", type=Path, metavar="PATH", help="write the full report as JSON")
     p.add_argument(
@@ -127,7 +132,8 @@ def main(argv: list[str] | None = None) -> int:
 
     ml = MlConfig(model=args.ml_model, confidence=args.ml_confidence) if args.ml_model else None
     default = [*sorted(DETECTORS), *(ML_DETECTORS if ml else ())]
-    reports = [evaluate(name, pages, ml) for name in (args.detector or default)]
+    names = args.detector or default
+    reports = [evaluate(n, pages, ml, refine_edges=args.refine_edges) for n in names]
     print(to_text(pages, reports, verbose=args.verbose))
     document = to_json(pages, reports)
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.services.analyzer import PanelAnalyzer
+from app.services.detection.refine import EdgeSnapRefiner
 from app.services.detection.registry import MlConfig, build_detector
 from app.services.image.decoder import ImageLimits
 from app.services.image.sources import UrlImageFetcher
@@ -44,7 +45,13 @@ def build_container(settings: Settings) -> Container:
     return Container(
         settings=settings,
         analyzer=PanelAnalyzer(
-            build_detector(settings.detector, ml_config(settings)), XYCutOrdering()
+            build_detector(settings.detector, ml_config(settings)),
+            XYCutOrdering(),
+            (
+                EdgeSnapRefiner(max_expand_ratio=settings.refine_max_expand)
+                if settings.refine_edges
+                else None
+            ),
         ),
         fetcher=UrlImageFetcher(
             max_bytes=settings.max_image_bytes,
