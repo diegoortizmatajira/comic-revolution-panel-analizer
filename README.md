@@ -54,7 +54,7 @@ Response:
   ],
   "sequence_confidence": 1.0,
   "method": "projection",
-  "version": "projection@1+xycut@1",
+  "version": "projection@1+xycut@2",
   "whole_page_fallback": false,
   "warnings": []
 }
@@ -128,10 +128,31 @@ When no panel is found the API still returns one panel covering the whole page, 
 a reader can fall back to showing the page. A single detected panel is returned as is.
 
 `method` names the detector that produced the result. Choose it with `PANELS_DETECTOR`:
-`projection` (default; gutter-based, works on colour) or `classical` (contour-based).
+`projection` (default; gutter-based, works on colour), `classical` (contour-based), or the optional
+`ml` and `hybrid` detectors (see below). With `hybrid`, `method` is the one that answered that page.
 Both struggle when panels have no gutter between them, when gutters are slanted, or on
 dense pages where balloons cross gutters; those pages return fewer, larger panels, and
 a warning when only one is found.
+
+### Optional ML detector
+
+The `ml` and `hybrid` detectors run a YOLO-style ONNX panel model. **No weights are included**:
+you supply a model you are allowed to use (its licence is yours to check, see
+[ADR 0002](docs/adr/0002-optional-ml-detector.md)).
+
+```sh
+uv sync --extra ml
+PANELS_DETECTOR=hybrid PANELS_ML_MODEL=/path/to/panels.onnx uv run uvicorn app.main:app_factory --factory
+
+# Docker: onnxruntime is opt-in, weights are mounted, never baked in
+docker build --build-arg WITH_ML=true -t panels-ml .
+docker run -p 8000:8000 -e PANELS_API_KEYS=k -e PANELS_DETECTOR=hybrid \
+  -e PANELS_ML_MODEL=/models/panels.onnx -v "$PWD/models:/models:ro" panels-ml
+```
+
+`hybrid` runs the classical detector first and asks the model only when that result looks wrong
+(fewer than 3 panels, or a very thin panel). The `version` field includes the model's hash, so
+results from different weights are never mixed.
 
 Errors share one shape: `{"code", "message", "details", "request_id"}` with statuses
 400, 401, 413, 415, 422, 429 (with `Retry-After`), 502 and 504.

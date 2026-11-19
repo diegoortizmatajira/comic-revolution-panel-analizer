@@ -36,6 +36,17 @@ instead of being averaged away.
   as "layout ambiguity", not "probability of being correct", until that changes.
 - The whole-page fallback counts as one predicted panel, so it is correct on a real splash page.
 
+## Scoring an ML model
+
+`ml` and `hybrid` are scored when you give a model (it is never part of the committed baseline):
+
+```sh
+uv run python -m app.evaluation --corpus tests/fixtures --ml-model /path/to/panels.onnx --verbose
+```
+
+Keep the weights outside the repository (`/models/` is git-ignored). Results for the model tried so
+far are in [ADR 0002](adr/0002-optional-ml-detector.md).
+
 ## Label format
 
 A labelled page is an image plus a sibling `<name>.labels.json`:
