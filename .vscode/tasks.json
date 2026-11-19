@@ -32,6 +32,13 @@
       "problemMatcher": []
     },
     {
+      "label": "Evaluate detectors",
+      "type": "shell",
+      "command": "uv run python -m app.evaluation --verbose",
+      "problemMatcher": [],
+      "detail": "Scores every detector on tests/fixtures, samples/ and the synthetic pages."
+    },
+    {
       "label": "Lint",
       "type": "shell",
       "command": "uv run ruff check . && uv run ruff format --check .",

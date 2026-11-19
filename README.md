@@ -142,6 +142,7 @@ Errors share one shape: `{"code", "message", "details", "request_id"}` with stat
 uv run pytest          # tests + coverage gate (90%)
 uv run ruff check . && uv run ruff format --check .
 uv run mypy            # strict
+uv run python -m app.evaluation --verbose   # score the detectors, see docs/evaluation.md
 uv run pre-commit install
 ```
 

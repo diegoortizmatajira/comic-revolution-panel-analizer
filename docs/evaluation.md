@@ -1,0 +1,120 @@
+# Detector evaluation
+
+Panel detectors are scored against hand-labelled pages, so a change can be judged by numbers
+instead of by eye: did it fix the page it targets, and did it break any page that worked?
+
+```sh
+uv run python -m app.evaluation --verbose                       # everything available
+uv run python -m app.evaluation --corpus tests/fixtures         # committed pages + synthetic only
+uv run python -m app.evaluation --detector projection --json out.json
+```
+
+By default the corpus is `tests/fixtures` (committed, public-domain), `samples/` (local,
+git-ignored, your own pages) and a set of generated pages. Every registered detector is scored
+through the same analyzer and reading-order code the API uses.
+
+## What is measured
+
+| Metric | Meaning |
+|---|---|
+| `prec@50`, `rec@50`, `f1@50` | Panels matched one-to-one at IoU >= 0.5, micro-averaged over all panels |
+| `f1@75` | The same at IoU >= 0.75 (tighter boxes) |
+| `order` | Share of matched panel pairs that are read in the ground-truth order |
+| `page_acc` | Share of pages that are **exactly** right: every panel found, nothing extra, same order |
+| `conf_auc` | Chance that a correct page gets a higher `sequence_confidence` than a wrong one. 0.5 means the score carries no information, 1.0 means it separates right from wrong perfectly |
+
+IoU is computed on normalized boxes, which gives the same value as on pixels. Results are also
+broken down by tag (`dark`, `borderless`, `spread`, `rtl`, ...) so a weakness shows up as a row
+instead of being averaged away.
+
+### Reading the numbers
+
+- `page_acc` is the strictest and the most useful for readers: one missing or merged panel makes
+  the page wrong.
+- `conf_auc` is currently about 0.5: `sequence_confidence` only measures how cleanly the layout
+  could be cut, not whether detection was right, so it does not predict a wrong page. Treat it
+  as "layout ambiguity", not "probability of being correct", until that changes.
+- The whole-page fallback counts as one predicted panel, so it is correct on a real splash page.
+
+## Label format
+
+A labelled page is an image plus a sibling `<name>.labels.json`:
+
+```json
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": ["borderless"],
+  "notes": "free text",
+  "panels": [
+    {"x": 0.05, "y": 0.03, "width": 0.90, "height": 0.30},
+    {"x": 0.05, "y": 0.36, "width": 0.43, "height": 0.30}
+  ]
+}
+```
+
+- `panels` are boxes **normalized to the image** (0-1, origin top-left) **in reading order** for
+  `reading_direction` (`ltr` or `rtl`).
+- A panel is its **frame**. Title lettering, page numbers and captions outside the frame are not
+  panels; a caption box inside the frame is part of it. Where a caption straddles a frame line,
+  use the frame line and say so in `notes`. Labels are good to a few pixels, which IoU 0.5
+  absorbs.
+- Spreads: label every panel of both pages, in reading order across the whole spread.
+- Unknown keys and boxes outside the page are rejected when the file is loaded.
+- `verified: false` marks a draft; the harness ignores drafts unless `--include-unverified`.
+
+Suggested tags: `clean`, `dark`, `noisy`, `aged-paper`, `borderless`, `bleed`, `splash`,
+`spread`, `rtl`, `diagonal`, `no-gutter`, `narrow-gutter`, `title-banner`, `captions`,
+`circular-inset`, `dense-art`. Generated pages also carry `synthetic`.
+
+## Adding a page
+
+1. Put the image in `tests/fixtures/` (public domain only, with its provenance in
+   `tests/fixtures/LICENSES.md`) or in `samples/` (local only; the folder's `.gitignore` keeps
+   both the images and their labels out of git).
+2. Create a draft: `uv run python -m app.evaluation --propose tests/fixtures/page.jpg`.
+   The draft comes from a detector, so **it is biased towards what the detector already does**.
+3. Correct every box by looking at the page, set the reading direction and tags, and change
+   `"verified"` to `true`.
+4. Re-run the evaluation. If the page is in `tests/fixtures`, refresh the baseline (below).
+
+Drafts are only a starting point: never accept one without checking it.
+
+## Baseline and CI
+
+`docs/evaluation/baseline.json` holds the results on the committed corpus (`tests/fixtures`
+plus the generated pages). CI runs
+
+```sh
+uv run python -m app.evaluation --corpus tests/fixtures --baseline docs/evaluation/baseline.json
+```
+
+and fails when `f1@50`, `f1@75`, `order` or `page_acc` of any detector drops by more than
+`--max-drop` (default 0.02). Improvements pass. If the corpus itself changed, the comparison is
+refused until the baseline is refreshed:
+
+```sh
+uv run python -m app.evaluation --corpus tests/fixtures --write-baseline docs/evaluation/baseline.json
+```
+
+Commit the refreshed baseline together with the change that caused it. Local `samples/` are not
+part of the baseline because they differ between machines.
+
+## Baseline numbers (committed corpus: 3 real pages + 11 generated)
+
+| detector | f1@50 | f1@75 | order | page_acc | conf_auc |
+|---|---|---|---|---|---|
+| projection | 0.90 | 0.83 | 0.96 | 0.57 | 0.50 |
+| classical | 0.86 | 0.77 | 0.96 | 0.50 | 0.50 |
+
+Known weaknesses visible in the per-tag rows: pages with no gutter, double-page spreads (panels
+of both pages are ordered together, see #5), diagonal gutters for `projection`, and captions or
+title lettering sitting in the gutters of real scans.
+
+## Current limits of the corpus
+
+The corpus is small: 3 labelled real pages and 11 generated pages in the repository. Generated
+pages have exact ground truth but are cleaner than real scans, and no real manga (RTL) page,
+spread or dense modern page is committed yet, only generated stand-ins. Treat the numbers as a
+regression guard, not as an accuracy estimate, until more public-domain pages are labelled.
