@@ -101,20 +101,34 @@ uv run python -m app.evaluation --corpus tests/fixtures --write-baseline docs/ev
 Commit the refreshed baseline together with the change that caused it. Local `samples/` are not
 part of the baseline because they differ between machines.
 
-## Baseline numbers (committed corpus: 3 real pages + 11 generated)
+## Baseline numbers (committed corpus: 8 real pages + 11 generated)
 
-| detector | f1@50 | f1@75 | order | page_acc | conf_auc |
-|---|---|---|---|---|---|
-| projection | 0.90 | 0.83 | 0.96 | 0.57 | 0.50 |
-| classical | 0.86 | 0.77 | 0.96 | 0.50 | 0.50 |
+Read the **real** rows. Generated pages are cleaner than scans and flatter the averages.
+
+| detector | pages | f1@50 | f1@75 | order | page_acc | conf_auc |
+|---|---|---|---|---|---|---|
+| projection, real | 8 | 0.61 | 0.55 | 1.00 | 0.38 | 0.50 |
+| projection, synthetic | 11 | 0.97 | 0.92 | 0.96 | 0.64 | 0.50 |
+| classical, real | 8 | 0.16 | 0.08 | 1.00 | 0.12 | 0.57 |
+| classical, synthetic | 11 | 0.94 | 0.86 | 0.96 | 0.55 | 0.52 |
+
+On real pages `projection` gets 3 of 8 pages exactly right, `classical` 1 of 8.
 
 Known weaknesses visible in the per-tag rows: pages with no gutter, double-page spreads (panels
-of both pages are ordered together, see #5), diagonal gutters for `projection`, and captions or
-title lettering sitting in the gutters of real scans.
+of both pages are ordered together, see #5), diagonal gutters for `projection`, and on real
+scans: caption text or title lettering in the gutters, thin frames on newsprint, L-shaped panels
+and slanted gutters. Each real page that fails is a strict xfail in
+`tests/integration/test_fixture_pages.py`.
 
 ## Current limits of the corpus
 
-The corpus is small: 3 labelled real pages and 11 generated pages in the repository. Generated
-pages have exact ground truth but are cleaner than real scans, and no real manga (RTL) page,
-spread or dense modern page is committed yet, only generated stand-ins. Treat the numbers as a
-regression guard, not as an accuracy estimate, until more public-domain pages are labelled.
+The corpus is small: 8 labelled real pages and 11 generated pages in the repository (plus
+whatever you label locally in `samples/`). Treat the numbers as a regression guard, not as an
+accuracy estimate.
+
+- No real manga (RTL) page, double-page spread, splash page or dense modern page is committed
+  yet; RTL, spreads and splashes are covered only by generated stand-ins.
+- All real pages are golden-age western comics, which is what public-domain archives mostly hold.
+- Labels were made by one person looking at overlays. For two pages (`public_004`, `public_005`)
+  the first draft came from the detector and was then checked by eye, so those labels may lean
+  towards what the detector does; prefer fully manual labels for new pages.
