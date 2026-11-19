@@ -80,6 +80,18 @@ class DetectedPanel:
 
 
 @dataclass(frozen=True, slots=True)
+class Detection:
+    """What a detector found on one page and which method actually produced it.
+
+    A composite detector (hybrid) reports the component that answered, so `method` is per page,
+    not per detector instance.
+    """
+
+    panels: tuple[DetectedPanel, ...]
+    method: str
+
+
+@dataclass(frozen=True, slots=True)
 class OrderedPanel:
     id: int
     order: int

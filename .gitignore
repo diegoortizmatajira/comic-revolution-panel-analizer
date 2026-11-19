@@ -221,3 +221,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local ML model weights (never committed; see docs/adr/0002)
+/models/

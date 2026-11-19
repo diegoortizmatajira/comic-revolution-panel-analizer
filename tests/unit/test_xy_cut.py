@@ -78,3 +78,27 @@ def test_ordering_is_a_permutation_with_valid_confidence(
     result = ordering.order(panels, direction)
     assert sorted(map(id, result.panels)) == sorted(map(id, panels))
     assert 0.0 <= result.confidence <= 1.0
+
+
+def test_small_overlaps_still_separate_panels_with_the_default_tolerance() -> None:
+    # Ragged ML boxes overlap by a few pixels; the order must still be found without guessing.
+    row = [
+        panel(0, 0, 105, 100),
+        panel(100, 0, 105, 100),
+        panel(0, 102, 105, 100),
+        panel(100, 98, 105, 100),
+    ]
+    result = ordering.order(row, ReadingDirection.LTR)
+    assert positions(result.panels) == [(0, 0), (100, 0), (0, 102), (100, 98)]
+    assert result.confidence == 1.0
+
+
+def test_tolerance_zero_keeps_the_strict_behaviour() -> None:
+    row = [panel(0, 0, 105, 100), panel(100, 0, 105, 100)]
+    strict = XYCutOrdering(gap_tolerance=0.0).order(row, ReadingDirection.LTR)
+    assert strict.confidence == 0.5  # overlapping extents: no clean cut, order is a guess
+
+
+def test_large_overlaps_are_still_ambiguous() -> None:
+    result = ordering.order([panel(0, 0, 60, 60), panel(40, 40, 60, 60)], ReadingDirection.LTR)
+    assert result.confidence == 0.5

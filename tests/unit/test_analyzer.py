@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 import numpy as np
-from app.domain.models import AnalysisResult, DetectedPanel, ImageSize, ReadingDirection
+from app.domain.models import AnalysisResult, DetectedPanel, Detection, ImageSize, ReadingDirection
 from app.services.analyzer import FALLBACK_CONFIDENCE, PanelAnalyzer
 from app.services.image.decoder import DecodedImage
 from app.services.ordering.xy_cut import XYCutOrdering
@@ -17,8 +17,8 @@ class FakeDetector:
     def __init__(self, panels: Sequence[DetectedPanel]) -> None:
         self._panels = panels
 
-    def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]:
-        return self._panels
+    def detect(self, page: NDArray[np.uint8]) -> Detection:
+        return Detection(panels=tuple(self._panels), method=self.name)
 
 
 def run(
@@ -33,7 +33,7 @@ def test_numbers_panels_in_reading_order_with_normalized_boxes() -> None:
     assert [(p.id, p.order, p.bbox.x) for p in result.panels] == [(1, 1, 0), (2, 2, 250)]
     assert result.panels[0].normalized_bbox.width == 0.5
     assert result.method == "fake"
-    assert result.version == "fake@7+xycut@1"
+    assert result.version == "fake@7+xycut@2"
     assert result.whole_page_fallback is False
     assert result.warnings == ()
 

@@ -23,7 +23,9 @@ REAL_LAYOUT = [
 
 
 def boxes(page: np.ndarray) -> list[tuple[int, int, int, int]]:
-    return sorted((p.bbox.x, p.bbox.y, p.bbox.width, p.bbox.height) for p in detector.detect(page))
+    return sorted(
+        (p.bbox.x, p.bbox.y, p.bbox.width, p.bbox.height) for p in detector.detect(page).panels
+    )
 
 
 def assert_close(actual: tuple[int, ...], expected: tuple[int, ...], tol: int = 3) -> None:
@@ -48,7 +50,7 @@ def test_noisy_background_and_art() -> None:
 
 
 def test_real_layout_reading_order_ltr_and_rtl() -> None:
-    panels = detector.detect(make_comic_page(REAL_LAYOUT, background=MAROON))
+    panels = detector.detect(make_comic_page(REAL_LAYOUT, background=MAROON)).panels
     ltr = XYCutOrdering().order(panels, ReadingDirection.LTR)
     got = [(p.bbox.x, p.bbox.y) for p in ltr.panels]
     expected = [(40, 40), (290, 40), (290, 290), (40, 560), (410, 560)]
@@ -66,7 +68,7 @@ def test_art_bleeding_off_the_page_edge_does_not_break_background_detection() ->
 
 
 def test_blank_page_has_no_panels() -> None:
-    assert detector.detect(np.full((300, 200, 3), 255, dtype=np.uint8)) == []
+    assert detector.detect(np.full((300, 200, 3), 255, dtype=np.uint8)).panels == ()
 
 
 def test_ignores_specks_below_min_area() -> None:
@@ -80,7 +82,7 @@ def test_panels_with_no_gutter_stay_merged() -> None:
 
 
 def test_confidence_is_within_range() -> None:
-    for p in detector.detect(make_comic_page(REAL_LAYOUT, background=MAROON)):
+    for p in detector.detect(make_comic_page(REAL_LAYOUT, background=MAROON)).panels:
         assert 0.0 <= p.confidence <= 1.0
 
 
@@ -92,4 +94,4 @@ def test_real_sample_001_is_split_into_separate_panels() -> None:
     # Local, git-ignored sample (dark page, jagged hand-drawn frames). The contour
     # detector found 2 panels here; the projection detector separates at least 4.
     image = decode_image((SAMPLES / "001.webp").read_bytes(), ImageLimits(10**8, 10**8))
-    assert len(detector.detect(image.pixels)) >= 4
+    assert len(detector.detect(image.pixels).panels) >= 4

@@ -4,10 +4,16 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 from app.container import build_container
 from app.core.config import Settings
 from app.main import create_app
+from app.services.analyzer import PanelAnalyzer
+from app.services.detection.hybrid import HybridPanelDetector
+from app.services.detection.onnx import OnnxPanelDetector
+from app.services.detection.projection import ProjectionPanelDetector
+from app.services.ordering.xy_cut import XYCutOrdering
 from fastapi.testclient import TestClient
 
 from tests.conftest import make_page
@@ -48,7 +54,7 @@ def assert_four_panels(body: dict[str, Any], direction: str = "ltr") -> None:
     assert [p["order"] for p in body["panels"]] == [1, 2, 3, 4]
     assert body["sequence_confidence"] == 1.0
     assert body["method"] == "projection"
-    assert body["version"] == "projection@1+xycut@1"
+    assert body["version"] == "projection@1+xycut@2"
     assert body["whole_page_fallback"] is False
     first = body["panels"][0]
     assert first["bbox"] == {"x": 40, "y": 40, "width": 340, "height": 540}
@@ -216,3 +222,52 @@ def test_blank_page_returns_whole_page_fallback(client: TestClient) -> None:
     assert body["panels"][0]["bbox"] == {"x": 0, "y": 0, "width": 300, "height": 400}
     assert body["panels"][0]["bbox_normalized"]["width"] == 1.0
     assert body["sequence_confidence"] == 0.1
+
+
+def _fake_ml_output(
+    boxes: list[tuple[int, int, int, int]], page: tuple[int, int], size: int
+) -> Any:
+    """A YOLO-format output that decodes to the given page boxes (inverse of the letterbox)."""
+    width, height = page
+    scale = min(size / height, size / width)
+    pad_x, pad_y = (size - round(width * scale)) // 2, (size - round(height * scale)) // 2
+    cols = []
+    for x, y, w, h in boxes:
+        cols.append(
+            ((x + w / 2) * scale + pad_x, (y + h / 2) * scale + pad_y, w * scale, h * scale, 0.9)
+        )
+    cols += [(0.0, 0.0, 0.0, 0.0, 0.0)] * (16 - len(cols))
+    return np.array(cols, dtype=np.float32).T[None]
+
+
+def test_hybrid_falls_back_to_the_ml_detector_and_reports_it(
+    tmp_path: Path, page_2x2: bytes
+) -> None:
+    # One merged panel from the classical detector is suspicious, so the model is asked.
+    merged = make_page([(40, 40, 720, 1120)])
+    four = [(40, 40, 340, 540), (420, 40, 340, 540), (40, 620, 340, 540), (420, 620, 340, 540)]
+    weights = tmp_path / "m.onnx"
+    weights.write_bytes(b"w")
+
+    class Session:
+        def get_inputs(self) -> list[Any]:
+            return [type("I", (), {"name": "images"})()]
+
+        def run(self, names: object, feed: dict[str, object]) -> list[Any]:
+            return [_fake_ml_output(four, (800, 1200), 64)]
+
+    ml = OnnxPanelDetector(weights, input_size=64, session_factory=lambda _: Session())
+    settings = Settings(api_keys=KEY, log_json=False, _env_file=None)
+    container = replace(
+        build_container(settings),
+        analyzer=PanelAnalyzer(HybridPanelDetector(ProjectionPanelDetector(), ml), XYCutOrdering()),
+    )
+    with TestClient(create_app(settings, container)) as c:
+        body = c.post(
+            "/v1/panels/analyze/upload", files={"file": ("p.png", merged)}, headers=HEADERS
+        ).json()
+    assert body["method"] == "ml"
+    assert body["version"].startswith("hybrid@1[projection@1|ml@1:")
+    assert body["version"].endswith("+xycut@2")
+    assert [p["order"] for p in body["panels"]] == [1, 2, 3, 4]
+    assert abs(body["panels"][0]["bbox"]["x"] - 40) <= 20

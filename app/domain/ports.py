@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import NDArray
 
-    from app.domain.models import DetectedPanel, OrderingResult, ReadingDirection
+    from app.domain.models import DetectedPanel, Detection, OrderingResult, ReadingDirection
 
 
 class PanelDetector(Protocol):
@@ -24,7 +24,7 @@ class PanelDetector(Protocol):
         """Bump whenever a change could alter the detector's output."""
         ...
 
-    def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]: ...
+    def detect(self, page: NDArray[np.uint8]) -> Detection: ...
 
 
 class ReadingOrderStrategy(Protocol):

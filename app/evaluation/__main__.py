@@ -21,7 +21,13 @@ from app.evaluation.report import compare, to_json, to_text
 from app.evaluation.runner import evaluate
 from app.evaluation.synthetic import synthetic_pages
 from app.services.analyzer import PanelAnalyzer
-from app.services.detection.registry import DETECTORS, build_detector
+from app.services.detection.registry import (
+    DETECTORS,
+    ML_DETECTORS,
+    MlConfig,
+    build_detector,
+    detector_names,
+)
 from app.services.image.decoder import decode_image
 from app.services.ordering.xy_cut import XYCutOrdering
 
@@ -45,9 +51,17 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--detector",
         action="append",
-        choices=sorted(DETECTORS),
-        help="detector to score (repeatable; default: all)",
+        choices=sorted(detector_names()),
+        help="detector to score (repeatable; default: every detector that needs no model, plus "
+        "ml and hybrid when --ml-model is given)",
     )
+    p.add_argument(
+        "--ml-model",
+        type=Path,
+        metavar="PATH",
+        help="ONNX model for the ml and hybrid detectors (never committed; see docs/adr/0002)",
+    )
+    p.add_argument("--ml-confidence", type=float, default=0.25, help="ML score threshold")
     p.add_argument(
         "--include-unverified",
         action="store_true",
@@ -77,9 +91,9 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
-def _propose(target: Path, detector_name: str, *, force: bool) -> int:
+def _propose(target: Path, detector_name: str, ml: MlConfig | None, *, force: bool) -> int:
     images = image_files(target) if target.is_dir() else [target]
-    analyzer = PanelAnalyzer(build_detector(detector_name), XYCutOrdering())
+    analyzer = PanelAnalyzer(build_detector(detector_name, ml), XYCutOrdering())
     for image in images:
         out = labels_path(image)
         if out.exists() and not force:
@@ -97,7 +111,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
 
     if args.propose is not None:
-        return _propose(args.propose, (args.detector or ["projection"])[0], force=args.force)
+        ml_for_propose = MlConfig(model=args.ml_model) if args.ml_model else None
+        return _propose(
+            args.propose, (args.detector or ["projection"])[0], ml_for_propose, force=args.force
+        )
 
     pages: list[LabeledPage] = discover(
         args.corpus or DEFAULT_CORPUS, include_unverified=args.include_unverified
@@ -108,7 +125,9 @@ def main(argv: list[str] | None = None) -> int:
         print("No labelled pages found.", file=sys.stderr)
         return 2
 
-    reports = [evaluate(name, pages) for name in (args.detector or sorted(DETECTORS))]
+    ml = MlConfig(model=args.ml_model, confidence=args.ml_confidence) if args.ml_model else None
+    default = [*sorted(DETECTORS), *(ML_DETECTORS if ml else ())]
+    reports = [evaluate(name, pages, ml) for name in (args.detector or default)]
     print(to_text(pages, reports, verbose=args.verbose))
     document = to_json(pages, reports)
 

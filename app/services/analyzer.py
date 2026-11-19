@@ -22,8 +22,8 @@ class PanelAnalyzer:
         self._ordering = ordering
 
     def analyze(self, image: DecodedImage, direction: ReadingDirection) -> AnalysisResult:
-        detected = self._detector.detect(image.pixels)
-        ordering = self._ordering.order(detected, direction)
+        detection = self._detector.detect(image.pixels)
+        ordering = self._ordering.order(detection.panels, direction)
 
         panels = tuple(
             OrderedPanel(
@@ -65,7 +65,7 @@ class PanelAnalyzer:
             reading_direction=direction,
             panels=panels,
             sequence_confidence=sequence_confidence,
-            method=self._detector.name,
+            method=detection.method,
             version=(
                 f"{self._detector.name}@{self._detector.version}"
                 f"+{self._ordering.name}@{self._ordering.version}"

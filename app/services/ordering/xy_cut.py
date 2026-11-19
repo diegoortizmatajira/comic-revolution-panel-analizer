@@ -16,11 +16,23 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
 AMBIGUITY_PENALTY = 0.5
+# Chosen on the evaluation corpus: ML boxes order perfectly from about 8% up (docs/adr/0002).
+DEFAULT_GAP_TOLERANCE = 0.08
 
 
 class XYCutOrdering:
+    """Recursive XY-cut ordering.
+
+    ``gap_tolerance`` lets panels overlap slightly along an axis and still count as separated.
+    It is a fraction of the group's extent on that axis. ML detectors return ragged boxes whose
+    edges overlap by a few pixels; without tolerance no clean cut exists and the order is guessed.
+    """
+
     name = "xycut"
-    version = "1"
+    version = "2"  # 2: gap tolerance (default 8%)
+
+    def __init__(self, gap_tolerance: float = DEFAULT_GAP_TOLERANCE) -> None:
+        self._tolerance = gap_tolerance
 
     def order(self, panels: Sequence[DetectedPanel], direction: ReadingDirection) -> OrderingResult:
         if not panels:
@@ -36,11 +48,11 @@ class XYCutOrdering:
         if len(group) == 1:
             return list(group), 0
 
-        rows = _split(group, lo=lambda p: p.bbox.y, hi=lambda p: p.bbox.bottom)
+        rows = _split(group, self._tolerance, lo=lambda p: p.bbox.y, hi=lambda p: p.bbox.bottom)
         if len(rows) > 1:
             return self._recurse(rows, direction)
 
-        columns = _split(group, lo=lambda p: p.bbox.x, hi=lambda p: p.bbox.right)
+        columns = _split(group, self._tolerance, lo=lambda p: p.bbox.x, hi=lambda p: p.bbox.right)
         if len(columns) > 1:
             if direction is ReadingDirection.RTL:
                 columns.reverse()
@@ -65,16 +77,18 @@ class XYCutOrdering:
 
 def _split(
     group: tuple[DetectedPanel, ...],
+    tolerance: float,
     *,
     lo: Callable[[DetectedPanel], int],
     hi: Callable[[DetectedPanel], int],
 ) -> list[tuple[DetectedPanel, ...]]:
     """Split along gaps in the 1-D projection of the panels' extents."""
     ordered = sorted(group, key=lo)
+    slack = tolerance * (max(hi(p) for p in group) - lo(ordered[0]))
     parts: list[list[DetectedPanel]] = [[ordered[0]]]
     reach = hi(ordered[0])
     for panel in ordered[1:]:
-        if lo(panel) >= reach:
+        if lo(panel) >= reach - slack:
             parts.append([panel])
         else:
             parts[-1].append(panel)

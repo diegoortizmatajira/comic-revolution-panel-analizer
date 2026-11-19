@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from app.evaluation.labels import LabeledPage
+    from app.services.detection.registry import MlConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,9 +26,11 @@ class DetectorReport:
     pages: tuple[PageResult, ...]
 
 
-def evaluate(detector_name: str, pages: Sequence[LabeledPage]) -> DetectorReport:
+def evaluate(
+    detector_name: str, pages: Sequence[LabeledPage], ml: MlConfig | None = None
+) -> DetectorReport:
     """Score one detector through the same analyzer and ordering the API uses."""
-    detector = build_detector(detector_name)
+    detector = build_detector(detector_name, ml)
     analyzer = PanelAnalyzer(detector, XYCutOrdering())
     results: list[PageResult] = []
     for page in pages:

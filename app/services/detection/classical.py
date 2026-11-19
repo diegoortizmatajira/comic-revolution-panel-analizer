@@ -13,11 +13,9 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from app.domain.models import BoundingBox, DetectedPanel
+from app.domain.models import BoundingBox, DetectedPanel, Detection
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from numpy.typing import NDArray
 
 
@@ -36,7 +34,7 @@ class ClassicalPanelDetector:
         self._min_area_ratio = min_area_ratio
         self._border_fraction = border_fraction
 
-    def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]:
+    def detect(self, page: NDArray[np.uint8]) -> Detection:
         gray = np.asarray(cv2.cvtColor(page, cv2.COLOR_RGB2GRAY), dtype=np.uint8)
         height, width = gray.shape
         background = self._estimate_background(gray)
@@ -61,7 +59,7 @@ class ClassicalPanelDetector:
                     confidence=min(1.0, max(0.0, fill)),
                 )
             )
-        return panels
+        return Detection(panels=tuple(panels), method=self.name)
 
     def _estimate_background(self, page: NDArray[np.uint8]) -> int:
         height, width = page.shape

@@ -5,13 +5,13 @@ from typing import Any, get_args
 import numpy as np
 import pytest
 from app.core.config import Settings
-from app.domain.models import BoundingBox, DetectedPanel
+from app.domain.models import BoundingBox, DetectedPanel, Detection
 from app.evaluation import __main__ as cli
 from app.evaluation.labels import LabeledPage, discover
 from app.evaluation.report import compare, to_json, to_text
 from app.evaluation.runner import evaluate
 from app.evaluation.synthetic import synthetic_pages
-from app.services.detection.registry import DETECTORS, build_detector
+from app.services.detection.registry import DETECTORS, build_detector, detector_names
 
 from tests.conftest import make_page
 from tests.unit.test_eval_labels import make_corpus
@@ -26,8 +26,8 @@ class OracleDetector:
     def __init__(self, boxes: list[BoundingBox]) -> None:
         self._boxes = boxes
 
-    def detect(self, page: np.ndarray) -> list[DetectedPanel]:
-        return [DetectedPanel(b, 1.0) for b in self._boxes]
+    def detect(self, page: np.ndarray) -> Detection:
+        return Detection(tuple(DetectedPanel(b, 1.0) for b in self._boxes), self.name)
 
 
 def oracle_for(page_index: int, monkeypatch: pytest.MonkeyPatch) -> list[LabeledPage]:
@@ -104,7 +104,7 @@ def test_registry_builds_known_detectors_and_rejects_unknown() -> None:
 
 
 def test_registry_matches_the_settings_choices() -> None:
-    assert set(get_args(Settings.model_fields["detector"].annotation)) == set(DETECTORS)
+    assert set(get_args(Settings.model_fields["detector"].annotation)) == set(detector_names())
 
 
 def test_text_report_names_detectors_and_tags() -> None:

@@ -20,11 +20,9 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-from app.domain.models import BoundingBox, DetectedPanel
+from app.domain.models import BoundingBox, DetectedPanel, Detection
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from numpy.typing import NDArray
 
     Mask = NDArray[np.bool_]
@@ -55,7 +53,7 @@ class ProjectionPanelDetector:
         self._border_fraction = border_fraction
         self._max_depth = max_depth
 
-    def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]:
+    def detect(self, page: NDArray[np.uint8]) -> Detection:
         height, width = page.shape[:2]
         mask = self._content_mask(page)
         regions: list[_Region] = []
@@ -73,7 +71,7 @@ class ProjectionPanelDetector:
                     confidence=min(1.0, max(0.0, fill)),
                 )
             )
-        return panels
+        return Detection(panels=tuple(panels), method=self.name)
 
     def _content_mask(self, page: NDArray[np.uint8]) -> Mask:
         background = self._estimate_background(page)

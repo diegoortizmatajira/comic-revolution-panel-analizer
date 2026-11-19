@@ -4,7 +4,14 @@ COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
 WORKDIR /srv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+# Build with `--build-arg WITH_ML=true` to include onnxruntime (the optional ML detector).
+# Model weights are never baked into the image: mount them and set PANELS_ML_MODEL.
+ARG WITH_ML=false
+RUN if [ "$WITH_ML" = "true" ]; then \
+      uv sync --frozen --no-dev --no-install-project --extra ml; \
+    else \
+      uv sync --frozen --no-dev --no-install-project; \
+    fi
 
 FROM python:3.13-slim
 RUN useradd --create-home --uid 10001 appuser
