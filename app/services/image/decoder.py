@@ -26,12 +26,12 @@ class ImageLimits:
 
 @dataclass(frozen=True, slots=True)
 class DecodedImage:
-    gray: NDArray[np.uint8]
+    pixels: NDArray[np.uint8]  # RGB, shape (height, width, 3)
     size: ImageSize
 
 
 def decode_image(data: bytes, limits: ImageLimits) -> DecodedImage:
-    """Validate by content (not headers) and decode into a grayscale array."""
+    """Validate by content (not headers) and decode into an RGB array."""
     if not data:
         msg = "Image is empty."
         raise InvalidImageError(msg)
@@ -50,9 +50,9 @@ def decode_image(data: bytes, limits: ImageLimits) -> DecodedImage:
             if width * height > limits.max_pixels:  # checked before pixel data is decoded
                 msg = "Image dimensions exceed the maximum allowed."
                 raise ImageTooLargeError(msg, {"max_pixels": limits.max_pixels})
-            gray = np.asarray(img.convert("L"), dtype=np.uint8)
+            pixels = np.asarray(img.convert("RGB"), dtype=np.uint8)
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         msg = "Could not decode the image."
         raise InvalidImageError(msg) from exc
 
-    return DecodedImage(gray=gray, size=ImageSize(width=width, height=height))
+    return DecodedImage(pixels=pixels, size=ImageSize(width=width, height=height))

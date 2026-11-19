@@ -47,7 +47,7 @@ def assert_four_panels(body: dict[str, Any], direction: str = "ltr") -> None:
     assert body["reading_direction"] == direction
     assert [p["order"] for p in body["panels"]] == [1, 2, 3, 4]
     assert body["sequence_confidence"] == 1.0
-    assert body["method"] == "classical"
+    assert body["method"] == "projection"
     first = body["panels"][0]
     assert first["bbox"] == {"x": 40, "y": 40, "width": 340, "height": 540}
     assert first["bbox_normalized"]["x"] == pytest.approx(0.05)
@@ -180,3 +180,12 @@ def test_demo_samples_missing_folder_is_empty(tmp_path: Path) -> None:
     )
     with TestClient(create_app(settings)) as c:
         assert c.get("/demo/samples").json() == []
+
+
+def test_detector_is_selectable_by_setting(page_2x2: bytes) -> None:
+    settings = Settings(api_keys=KEY, detector="classical", log_json=False, _env_file=None)
+    with TestClient(create_app(settings)) as c:
+        response = c.post(
+            "/v1/panels/analyze/upload", files={"file": ("p.png", page_2x2)}, headers=HEADERS
+        )
+    assert response.json()["method"] == "classical"

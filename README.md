@@ -60,6 +60,12 @@ Response:
 `confidence` is per-panel detection quality; `sequence_confidence` is how unambiguous the
 reading order is (1.0 = every panel separated by clean gutters).
 
+`method` names the detector that produced the result. Choose it with `PANELS_DETECTOR`:
+`projection` (default; gutter-based, works on colour) or `classical` (contour-based).
+Both struggle when panels have no gutter between them, when gutters are slanted, or on
+dense pages where balloons cross gutters; those pages return fewer, larger panels, and
+a warning when only one is found.
+
 Errors share one shape: `{"code", "message", "details", "request_id"}` with statuses
 400, 401, 413, 415, 422, 429 (with `Retry-After`), 502 and 504.
 

@@ -7,9 +7,9 @@ from tests.conftest import make_page
 LIMITS = ImageLimits(max_bytes=1_000_000, max_pixels=1_000_000)
 
 
-def test_decodes_png_to_gray_array() -> None:
+def test_decodes_png_to_rgb_array() -> None:
     img = decode_image(make_page([], size=(30, 20)), LIMITS)
-    assert img.gray.shape == (20, 30)
+    assert img.pixels.shape == (20, 30, 3)
     assert (img.size.width, img.size.height) == (30, 20)
 
 

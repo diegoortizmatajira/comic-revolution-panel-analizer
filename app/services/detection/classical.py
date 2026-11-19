@@ -36,9 +36,10 @@ class ClassicalPanelDetector:
         self._border_fraction = border_fraction
 
     def detect(self, page: NDArray[np.uint8]) -> Sequence[DetectedPanel]:
-        height, width = page.shape
-        background = self._estimate_background(page)
-        diff = np.abs(page.astype(np.int16) - background)
+        gray = np.asarray(cv2.cvtColor(page, cv2.COLOR_RGB2GRAY), dtype=np.uint8)
+        height, width = gray.shape
+        background = self._estimate_background(gray)
+        diff = np.abs(gray.astype(np.int16) - background)
         mask = (diff > self._tolerance).astype(np.uint8) * 255
 
         kernel = np.ones((5, 5), np.uint8)

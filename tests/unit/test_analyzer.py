@@ -23,7 +23,7 @@ class FakeDetector:
 def run(
     panels: Sequence[DetectedPanel], direction: ReadingDirection = ReadingDirection.LTR
 ) -> AnalysisResult:
-    image = DecodedImage(np.zeros((1000, 500), dtype=np.uint8), ImageSize(500, 1000))
+    image = DecodedImage(np.zeros((1000, 500, 3), dtype=np.uint8), ImageSize(500, 1000))
     return PanelAnalyzer(FakeDetector(panels), XYCutOrdering()).analyze(image, direction)
 
 

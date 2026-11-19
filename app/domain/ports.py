@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 class PanelDetector(Protocol):
-    """Finds panels in a decoded page (grayscale uint8 array, shape HxW)."""
+    """Finds panels in a decoded page (RGB uint8 array, shape HxWx3)."""
 
     @property
     def name(self) -> str: ...

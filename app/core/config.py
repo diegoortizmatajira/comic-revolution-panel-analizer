@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +25,8 @@ class Settings(BaseSettings):
 
     enable_demo_page: bool = False  # serves /demo, a developer test page
     samples_dir: Path = Path("samples")  # images listed by the demo page
+
+    detector: Literal["projection", "classical"] = "projection"
 
     log_level: str = "INFO"
     log_json: bool = True
