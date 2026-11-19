@@ -61,6 +61,9 @@ A labelled page is an image plus a sibling `<name>.labels.json`:
   use the frame line and say so in `notes`. Labels are good to a few pixels, which IoU 0.5
   absorbs.
 - Spreads: label every panel of both pages, in reading order across the whole spread.
+- Open frames: when a panel has no frame line on a side, the box is the extent of its artwork, and
+  balloons or captions floating outside that artwork are left out. Boxes on such pages are only
+  accurate to a few tens of pixels; say so in `notes`.
 - Unknown keys and boxes outside the page are rejected when the file is loaded.
 - `verified: false` marks a draft; the harness ignores drafts unless `--include-unverified`.
 
@@ -101,34 +104,40 @@ uv run python -m app.evaluation --corpus tests/fixtures --write-baseline docs/ev
 Commit the refreshed baseline together with the change that caused it. Local `samples/` are not
 part of the baseline because they differ between machines.
 
-## Baseline numbers (committed corpus: 8 real pages + 11 generated)
+## Baseline numbers (committed corpus: 23 real pages + 11 generated)
 
 Read the **real** rows. Generated pages are cleaner than scans and flatter the averages.
 
 | detector | pages | f1@50 | f1@75 | order | page_acc | conf_auc |
 |---|---|---|---|---|---|---|
-| projection, real | 8 | 0.61 | 0.55 | 1.00 | 0.38 | 0.50 |
+| projection, real | 23 | 0.80 | 0.69 | 1.00 | 0.48 | 0.50 |
 | projection, synthetic | 11 | 0.97 | 0.92 | 0.96 | 0.64 | 0.50 |
-| classical, real | 8 | 0.16 | 0.08 | 1.00 | 0.12 | 0.57 |
+| classical, real | 23 | 0.35 | 0.27 | 0.94 | 0.04 | 0.82 |
 | classical, synthetic | 11 | 0.94 | 0.86 | 0.96 | 0.55 | 0.52 |
 
-On real pages `projection` gets 3 of 8 pages exactly right, `classical` 1 of 8.
+On real pages `projection` gets 11 of 23 pages exactly right, `classical` 1 of 23. Note that
+`classical`'s `sequence_confidence` separates right from wrong pages well (AUC 0.82), because it
+flags ambiguous layouts on most pages it gets wrong, while `projection`'s does not (0.50).
 
 Known weaknesses visible in the per-tag rows: pages with no gutter, double-page spreads (panels
 of both pages are ordered together, see #5), diagonal gutters for `projection`, and on real
-scans: caption text or title lettering in the gutters, thin frames on newsprint, L-shaped panels
-and slanted gutters. Each real page that fails is a strict xfail in
+scans: caption text or title lettering in the gutters, thin frames on newsprint, L-shaped panels,
+slanted gutters, caption boxes split off from their panel, narrow gutters between panels, and
+open frames with balloons overlapping the gutters. Each real page that fails is a strict xfail in
 `tests/integration/test_fixture_pages.py`.
 
 ## Current limits of the corpus
 
-The corpus is small: 8 labelled real pages and 11 generated pages in the repository (plus
+The corpus is small: 23 labelled real pages and 11 generated pages in the repository (plus
 whatever you label locally in `samples/`). Treat the numbers as a regression guard, not as an
 accuracy estimate.
 
-- No real manga (RTL) page, double-page spread, splash page or dense modern page is committed
-  yet; RTL, spreads and splashes are covered only by generated stand-ins.
-- All real pages are golden-age western comics, which is what public-domain archives mostly hold.
+- No real manga (RTL) page, double-page spread, full-page splash or dense modern page is
+  committed yet; RTL, spreads and splashes are covered only by generated stand-ins.
+- All real pages are golden-age or silver-age western comics, which is what public-domain archives
+  mostly hold. Fifteen of them come from two issues, so they share a house style.
 - Labels were made by one person looking at overlays. For two pages (`public_004`, `public_005`)
   the first draft came from the detector and was then checked by eye, so those labels may lean
-  towards what the detector does; prefer fully manual labels for new pages.
+  towards what the detector does; the `midnight-mistery-*` and `moon-mullings-*` labels were made
+  fully by hand before the detector was run on them.
+- Provenance of some pages is incomplete or unverified, see `tests/fixtures/LICENSES.md`.
