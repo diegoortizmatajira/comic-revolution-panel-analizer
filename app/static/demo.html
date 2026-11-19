@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Analyzer Demo</title>
+<style>
+  :root { --bg:#f6f6f4; --fg:#1b1b1b; --card:#fff; --line:#d8d8d2; --accent:#2a5bd7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17181b; --fg:#ececec; --card:#222428; --line:#3a3d44; --accent:#7ea2ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, sans-serif; }
+  header { padding:12px 16px; border-bottom:1px solid var(--line); font-weight:600; }
+  main { display:grid; grid-template-columns: 300px 1fr; gap:16px; padding:16px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  label { display:block; font-size:13px; margin:10px 0 4px; opacity:.8; }
+  input[type=password], input[type=text], select { width:100%; padding:7px; border-radius:6px;
+    border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  button { margin-top:12px; padding:8px 12px; border-radius:6px; border:0; width:100%;
+    background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.5; cursor:default; }
+  #drop { border:2px dashed var(--line); border-radius:8px; padding:18px; text-align:center;
+    margin-top:6px; cursor:pointer; }
+  #drop.over { border-color:var(--accent); }
+  .row { display:flex; gap:12px; align-items:center; margin-top:10px; font-size:13px; }
+  .row input { margin:0; }
+  #stage { overflow:auto; text-align:center; min-height:200px; }
+  canvas { max-width:100%; height:auto; border:1px solid var(--line); }
+  #status { margin-top:10px; font-size:13px; white-space:pre-wrap; }
+  .err { color:#d33; } .warn { color:#b7791f; }
+  pre { max-height:260px; overflow:auto; font-size:12px; margin:8px 0 0; }
+  summary { cursor:pointer; margin-top:12px; }
+</style>
+</head>
+<body>
+<header>Comic Panel Analyzer · demo</header>
+<main>
+  <section class="card">
+    <label for="key">API key</label>
+    <input id="key" type="password" autocomplete="off" placeholder="X-API-Key">
+    <label for="dir">Reading direction</label>
+    <select id="dir"><option value="ltr">Left to right (western)</option>
+      <option value="rtl">Right to left (manga)</option></select>
+    <label for="sample">Sample pages</label>
+    <select id="sample"><option value="">(none found)</option></select>
+    <label>Image</label>
+    <div id="drop" tabindex="0">Click to choose, drop a file, or paste (Ctrl/Cmd+V)</div>
+    <input id="file" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+    <div class="row">
+      <label><input id="showPath" type="checkbox" checked> reading path</label>
+      <label><input id="showConf" type="checkbox" checked> confidence</label>
+    </div>
+    <button id="run" disabled>Analyze</button>
+    <div id="status"></div>
+    <details><summary>Raw JSON</summary><pre id="json"></pre></details>
+  </section>
+  <section class="card" id="stage"><canvas id="canvas" width="0" height="0"></canvas></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const canvas = $('canvas'), ctx = canvas.getContext('2d');
+let blob = null, img = null, result = null;
+
+try { $('key').value = localStorage.getItem('panelsKey') || ''; } catch {}
+
+function setStatus(text, cls = '') { const s = $('status'); s.textContent = text; s.className = cls; }
+
+function loadBlob(b) {
+  if (!b || !b.type.startsWith('image/')) { setStatus('Not an image file.', 'err'); return; }
+  blob = b; result = null; $('json').textContent = '';
+  const url = URL.createObjectURL(b);
+  img = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); $('run').disabled = false; setStatus(''); draw(); };
+  img.src = url;
+}
+
+function color(conf) { return `hsl(${Math.round(conf * 120)}, 85%, 45%)`; } // red -> green
+
+function draw() {
+  if (!img) return;
+  canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
+  ctx.drawImage(img, 0, 0);
+  if (!result) return;
+  const scale = Math.max(1, img.naturalWidth / 800);
+  const showPath = $('showPath').checked, showConf = $('showConf').checked;
+  const centers = result.panels.map(p => [p.bbox.x + p.bbox.width / 2, p.bbox.y + p.bbox.height / 2]);
+
+  if (showPath && centers.length > 1) {
+    ctx.strokeStyle = 'rgba(42,91,215,.8)'; ctx.lineWidth = 3 * scale; ctx.setLineDash([10 * scale, 8 * scale]);
+    ctx.beginPath(); centers.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  for (const p of result.panels) {
+    const { x, y, width, height } = p.bbox, c = showConf ? color(p.confidence) : '#2a5bd7';
+    ctx.fillStyle = c + '';  ctx.globalAlpha = 0.15; ctx.fillRect(x, y, width, height); ctx.globalAlpha = 1;
+    ctx.strokeStyle = c; ctx.lineWidth = 4 * scale; ctx.strokeRect(x, y, width, height);
+    const r = 22 * scale, cx = x + width / 2, cy = y + height / 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = c; ctx.fill();
+    ctx.lineWidth = 3 * scale; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${26 * scale}px system-ui`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(p.order), cx, cy + 1);
+  }
+}
+
+async function run() {
+  const key = $('key').value.trim();
+  if (!key) { setStatus('Enter an API key.', 'err'); return; }
+  try { localStorage.setItem('panelsKey', key); } catch {}
+  const form = new FormData();
+  form.append('file', blob, blob.name || 'page');
+  form.append('reading_direction', $('dir').value);
+  $('run').disabled = true; setStatus('Analyzing…');
+  try {
+    const res = await fetch('/v1/panels/analyze/upload', { method: 'POST', headers: { 'X-API-Key': key }, body: form });
+    const body = await res.json();
+    $('json').textContent = JSON.stringify(body, null, 2);
+    if (!res.ok) { result = null; draw(); setStatus(`${res.status} ${body.code}: ${body.message}`, 'err'); return; }
+    result = body; draw();
+    const lines = [`${body.panels.length} panels · sequence confidence ${body.sequence_confidence.toFixed(2)} · ${body.method}`];
+    setStatus(lines.concat(body.warnings.map(w => '⚠ ' + w)).join('\n'), body.warnings.length ? 'warn' : '');
+  } catch (e) { setStatus('Request failed: ' + e.message, 'err'); }
+  finally { $('run').disabled = false; }
+}
+
+async function loadSamples() {
+  try {
+    const names = await (await fetch('/demo/samples')).json();
+    if (!names.length) return;
+    $('sample').innerHTML = '<option value="">Select a sample…</option>' +
+      names.map(n => `<option>${n}</option>`).join('');
+  } catch {}
+}
+$('sample').onchange = async (e) => {
+  if (!e.target.value) return;
+  const res = await fetch('/demo/samples/' + encodeURIComponent(e.target.value));
+  if (!res.ok) { setStatus('Could not load sample.', 'err'); return; }
+  const b = await res.blob();
+  b.name = e.target.value;
+  loadBlob(b);
+};
+loadSamples();
+
+$('run').onclick = run;
+$('showPath').onchange = $('showConf').onchange = draw;
+$('drop').onclick = () => $('file').click();
+$('file').onchange = (e) => loadBlob(e.target.files[0]);
+$('drop').ondragover = (e) => { e.preventDefault(); $('drop').classList.add('over'); };
+$('drop').ondragleave = () => $('drop').classList.remove('over');
+$('drop').ondrop = (e) => { e.preventDefault(); $('drop').classList.remove('over'); loadBlob(e.dataTransfer.files[0]); };
+document.addEventListener('paste', (e) => {
+  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+  if (item) loadBlob(item.getAsFile());
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run server (LAN + demo page)",
+      "type": "shell",
+      "command": "uv run uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000 --reload",
+      "options": {
+        "env": {
+          "PANELS_API_KEYS": "dev-key",
+          "PANELS_ENABLE_DEMO_PAGE": "true",
+          "PANELS_LOG_JSON": "false"
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Will watch for changes",
+          "endsPattern": "Application startup complete"
+        }
+      },
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "detail": "Serves on any hostname (LAN) and enables the demo page. Use this for testing on other devices."
+    },
+    {
+      "label": "Test",
+      "type": "shell",
+      "command": "uv run pytest",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "uv run ruff check . && uv run ruff format --check .",
+      "problemMatcher": []
+    },
+    {
+      "label": "Type check",
+      "type": "shell",
+      "command": "uv run mypy",
+      "problemMatcher": []
+    },
+    {
+      "label": "Check all",
+      "dependsOn": ["Lint", "Type check", "Test"],
+      "dependsOrder": "sequence",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    }
+  ]
+}

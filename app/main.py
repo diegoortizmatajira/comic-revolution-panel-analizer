@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
 from app.api.middleware import RequestContextMiddleware
-from app.api.routers import health, panels
+from app.api.routers import demo, health, panels
 from app.container import Container, build_container
 from app.core.config import Settings
 from app.core.logging import configure_logging
@@ -26,6 +26,8 @@ def create_app(settings: Settings | None = None, container: Container | None = N
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(panels.router)
+    if settings.enable_demo_page:
+        app.include_router(demo.router)
     return app
 
 

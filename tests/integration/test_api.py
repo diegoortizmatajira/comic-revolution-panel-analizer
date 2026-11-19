@@ -1,6 +1,7 @@
 import base64
 from collections.abc import Iterator
 from dataclasses import replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -138,3 +139,44 @@ def test_rate_limit_sets_retry_after(page_2x2: bytes) -> None:
         limited = c.post("/v1/panels/analyze", json=payload, headers=HEADERS)
     assert limited.status_code == 429
     assert int(limited.headers["retry-after"]) >= 1
+
+
+def test_demo_page_disabled_by_default(client: TestClient) -> None:
+    assert client.get("/demo").status_code == 404
+
+
+def test_demo_page_served_when_enabled() -> None:
+    settings = Settings(api_keys=KEY, enable_demo_page=True, log_json=False, _env_file=None)
+    with TestClient(create_app(settings)) as c:
+        response = c.get("/demo")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "/v1/panels/analyze/upload" in response.text
+
+
+def test_demo_samples_list_and_serve(tmp_path: Path, page_2x2: bytes) -> None:
+    (tmp_path / "a.png").write_bytes(page_2x2)
+    (tmp_path / "notes.txt").write_text("ignore me")
+    (tmp_path / ".gitignore").write_text("*")
+    settings = Settings(
+        api_keys=KEY, enable_demo_page=True, samples_dir=tmp_path, log_json=False, _env_file=None
+    )
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/demo/samples").json() == ["a.png"]
+        served = c.get("/demo/samples/a.png")
+        assert served.status_code == 200
+        assert served.content == page_2x2
+        assert c.get("/demo/samples/notes.txt").status_code == 404
+        assert c.get("/demo/samples/..%2Fsecret.png").status_code == 404
+
+
+def test_demo_samples_missing_folder_is_empty(tmp_path: Path) -> None:
+    settings = Settings(
+        api_keys=KEY,
+        enable_demo_page=True,
+        samples_dir=tmp_path / "nope",
+        log_json=False,
+        _env_file=None,
+    )
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/demo/samples").json() == []

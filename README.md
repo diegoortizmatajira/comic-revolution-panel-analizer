@@ -11,6 +11,10 @@ cp .env.example .env            # set PANELS_API_KEYS
 uv run uvicorn app.main:app_factory --factory --reload
 ```
 
+Demo page (upload/paste a page and see numbered panel overlays): set
+`PANELS_ENABLE_DEMO_PAGE=true` and open http://localhost:8000/demo. Images placed in
+`samples/` (git-ignored) show up in its "Sample pages" dropdown.
+
 Interactive docs: http://localhost:8000/docs · OpenAPI: `/openapi.json` · Health: `/healthz`
 
 Or with Docker: `docker build -t panels . && docker run -p 8000:8000 -e PANELS_API_KEYS=change-me panels`

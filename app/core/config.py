@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +21,9 @@ class Settings(BaseSettings):
     url_fetch_timeout_seconds: float = Field(default=10.0, gt=0)
     url_max_redirects: int = Field(default=3, ge=0)
     allow_private_urls: bool = False  # development only
+
+    enable_demo_page: bool = False  # serves /demo, a developer test page
+    samples_dir: Path = Path("samples")  # images listed by the demo page
 
     log_level: str = "INFO"
     log_json: bool = True
