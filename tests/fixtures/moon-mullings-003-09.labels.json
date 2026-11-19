@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "open-frames",
+    "slanted-gutter",
+    "balloons-outside-frame"
+  ],
+  "notes": "Hand-drawn frames; some panels have no frame line, so their box is the extent of the artwork and balloons floating outside it are excluded. The first tier has slanted bottom edges.",
+  "panels": [
+    {
+      "x": 0.02526315789473684,
+      "y": 0.015748031496062992,
+      "width": 0.511578947368421,
+      "height": 0.3013600572655691
+    },
+    {
+      "x": 0.5473684210526316,
+      "y": 0.012884753042233358,
+      "width": 0.4442105263157895,
+      "height": 0.2870436649964209
+    },
+    {
+      "x": 0.023157894736842106,
+      "y": 0.33214030064423766,
+      "width": 0.32842105263157895,
+      "height": 0.2770221904080172
+    },
+    {
+      "x": 0.39052631578947367,
+      "y": 0.33070866141732286,
+      "width": 0.26842105263157895,
+      "height": 0.28274874731567645
+    },
+    {
+      "x": 0.7031578947368421,
+      "y": 0.360773085182534,
+      "width": 0.24947368421052632,
+      "height": 0.2526843235504653
+    },
+    {
+      "x": 0.015789473684210527,
+      "y": 0.6564065855404438,
+      "width": 0.9694736842105263,
+      "height": 0.3264137437365784
+    }
+  ]
+}

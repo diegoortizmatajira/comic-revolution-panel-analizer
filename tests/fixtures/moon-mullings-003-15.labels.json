@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "wavy-frame",
+    "large-top-panel"
+  ],
+  "notes": "Large panel with a wavy frame, a narrow strip panel, and an open-framed bottom panel.",
+  "panels": [
+    {
+      "x": 0.01263157894736842,
+      "y": 0.019285714285714285,
+      "width": 0.9810526315789474,
+      "height": 0.49857142857142855
+    },
+    {
+      "x": 0.023157894736842106,
+      "y": 0.5464285714285714,
+      "width": 0.9410526315789474,
+      "height": 0.19285714285714287
+    },
+    {
+      "x": 0.023157894736842106,
+      "y": 0.75,
+      "width": 0.9410526315789474,
+      "height": 0.23285714285714285
+    }
+  ]
+}

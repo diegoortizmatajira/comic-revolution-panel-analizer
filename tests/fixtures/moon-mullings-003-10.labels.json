@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "open-frames",
+    "balloons-outside-frame",
+    "borderless"
+  ],
+  "notes": "Hand-drawn frames; some panels have no frame line, so their box is the extent of the artwork and balloons floating outside it are excluded. Most panels here have only a bottom line; boxes are approximate.",
+  "panels": [
+    {
+      "x": 0.03684210526315789,
+      "y": 0.05371596762325239,
+      "width": 0.41157894736842104,
+      "height": 0.26637233259749815
+    },
+    {
+      "x": 0.4978947368421053,
+      "y": 0.1545253863134658,
+      "width": 0.22105263157894736,
+      "height": 0.1692420897718911
+    },
+    {
+      "x": 0.7221052631578947,
+      "y": 0.12141280353200883,
+      "width": 0.26105263157894737,
+      "height": 0.20235467255334805
+    },
+    {
+      "x": 0.018947368421052633,
+      "y": 0.34363502575423105,
+      "width": 0.6463157894736842,
+      "height": 0.2972774098601913
+    },
+    {
+      "x": 0.6778947368421052,
+      "y": 0.4392935982339956,
+      "width": 0.30526315789473685,
+      "height": 0.19573215599705665
+    },
+    {
+      "x": 0.018947368421052633,
+      "y": 0.7652685798381162,
+      "width": 0.3273684210526316,
+      "height": 0.21339220014716703
+    },
+    {
+      "x": 0.36736842105263157,
+      "y": 0.7564385577630611,
+      "width": 0.31684210526315787,
+      "height": 0.22442972774098602
+    },
+    {
+      "x": 0.7157894736842105,
+      "y": 0.7873436350257542,
+      "width": 0.2673684210526316,
+      "height": 0.19573215599705665
+    }
+  ]
+}

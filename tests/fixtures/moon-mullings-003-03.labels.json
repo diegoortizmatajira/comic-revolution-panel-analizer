@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "open-frames",
+    "title-lettering-in-art"
+  ],
+  "notes": "Hand-drawn frames; some panels have no frame line, so their box is the extent of the artwork and balloons floating outside it are excluded. The top panel contains the strip title lettering.",
+  "panels": [
+    {
+      "x": 0.02736842105263158,
+      "y": 0.03901734104046243,
+      "width": 0.9505263157894737,
+      "height": 0.28684971098265893
+    },
+    {
+      "x": 0.02736842105263158,
+      "y": 0.3475433526011561,
+      "width": 0.4536842105263158,
+      "height": 0.29190751445086704
+    },
+    {
+      "x": 0.4968421052631579,
+      "y": 0.34609826589595377,
+      "width": 0.4726315789473684,
+      "height": 0.29552023121387283
+    },
+    {
+      "x": 0.02736842105263158,
+      "y": 0.6697976878612717,
+      "width": 0.3968421052631579,
+      "height": 0.30852601156069365
+    },
+    {
+      "x": 0.4305263157894737,
+      "y": 0.6654624277456648,
+      "width": 0.5389473684210526,
+      "height": 0.31286127167630057
+    }
+  ]
+}

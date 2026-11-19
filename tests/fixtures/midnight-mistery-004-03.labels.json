@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "large-top-panel",
+    "captions",
+    "copyright-text"
+  ],
+  "notes": "Large framed top panel (title lettering is inside it) with two framed panels below. The printed credits under them are not a panel.",
+  "panels": [
+    {
+      "x": 0.04923076923076923,
+      "y": 0.01245674740484429,
+      "width": 0.8687179487179487,
+      "height": 0.5494809688581315
+    },
+    {
+      "x": 0.04923076923076923,
+      "y": 0.5577854671280277,
+      "width": 0.4246153846153846,
+      "height": 0.33633217993079584
+    },
+    {
+      "x": 0.48923076923076925,
+      "y": 0.5633217993079584,
+      "width": 0.4287179487179487,
+      "height": 0.33079584775086507
+    }
+  ]
+}

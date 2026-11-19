@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "open-frames",
+    "balloons-outside-frame"
+  ],
+  "notes": "Hand-drawn frames; some panels have no frame line, so their box is the extent of the artwork and balloons floating outside it are excluded.",
+  "panels": [
+    {
+      "x": 0.02526315789473684,
+      "y": 0.06058446186742694,
+      "width": 0.5463157894736842,
+      "height": 0.27441197434069853
+    },
+    {
+      "x": 0.5778947368421052,
+      "y": 0.021382751247327157,
+      "width": 0.3873684210526316,
+      "height": 0.3178902352102637
+    },
+    {
+      "x": 0.023157894736842106,
+      "y": 0.3563791874554526,
+      "width": 0.9421052631578948,
+      "height": 0.248039914468995
+    },
+    {
+      "x": 0.018947368421052633,
+      "y": 0.6215253029223093,
+      "width": 0.6610526315789473,
+      "height": 0.36065573770491804
+    },
+    {
+      "x": 0.7031578947368421,
+      "y": 0.7576621525302922,
+      "width": 0.26,
+      "height": 0.21382751247327156
+    }
+  ]
+}

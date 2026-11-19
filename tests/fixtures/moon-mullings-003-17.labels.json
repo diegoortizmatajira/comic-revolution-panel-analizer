@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "reading_direction": "ltr",
+  "verified": true,
+  "tags": [
+    "aged-paper",
+    "hand-drawn-frames",
+    "open-frames",
+    "balloons-outside-frame"
+  ],
+  "notes": "Hand-drawn frames; some panels have no frame line, so their box is the extent of the artwork and balloons floating outside it are excluded. The first tier's left panel holds three figures on one backdrop.",
+  "panels": [
+    {
+      "x": 0.02526315789473684,
+      "y": 0.13055954088952654,
+      "width": 0.5421052631578948,
+      "height": 0.1958393113342898
+    },
+    {
+      "x": 0.5810526315789474,
+      "y": 0.01721664275466284,
+      "width": 0.4010526315789474,
+      "height": 0.29770444763271164
+    },
+    {
+      "x": 0.02526315789473684,
+      "y": 0.430416068866571,
+      "width": 0.4336842105263158,
+      "height": 0.20014347202295552
+    },
+    {
+      "x": 0.5515789473684211,
+      "y": 0.39096126255380204,
+      "width": 0.41789473684210526,
+      "height": 0.2223816355810617
+    },
+    {
+      "x": 0.018947368421052633,
+      "y": 0.6434720229555236,
+      "width": 0.9631578947368421,
+      "height": 0.3350071736011478
+    }
+  ]
+}
