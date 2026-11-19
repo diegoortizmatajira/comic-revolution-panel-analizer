@@ -1,0 +1,80 @@
+from app.domain.models import DetectedPanel, ReadingDirection
+from app.services.ordering.xy_cut import XYCutOrdering
+from hypothesis import given
+from hypothesis import strategies as st
+
+from tests.conftest import panel
+
+ordering = XYCutOrdering()
+
+
+def positions(panels: tuple[DetectedPanel, ...]) -> list[tuple[int, int]]:
+    return [(p.bbox.x, p.bbox.y) for p in panels]
+
+
+def test_empty_page() -> None:
+    result = ordering.order([], ReadingDirection.LTR)
+    assert result.panels == ()
+    assert result.confidence == 1.0
+
+
+def test_grid_ltr() -> None:
+    grid = [
+        panel(420, 620, 340, 540),
+        panel(40, 40, 340, 540),
+        panel(420, 40, 340, 540),
+        panel(40, 620, 340, 540),
+    ]
+    result = ordering.order(grid, ReadingDirection.LTR)
+    assert positions(result.panels) == [(40, 40), (420, 40), (40, 620), (420, 620)]
+    assert result.confidence == 1.0
+
+
+def test_grid_rtl_reverses_columns_not_rows() -> None:
+    grid = [
+        panel(40, 40, 340, 540),
+        panel(420, 40, 340, 540),
+        panel(40, 620, 340, 540),
+        panel(420, 620, 340, 540),
+    ]
+    result = ordering.order(grid, ReadingDirection.RTL)
+    assert positions(result.panels) == [(420, 40), (40, 40), (420, 620), (40, 620)]
+
+
+def test_tall_panel_left_then_stacked_right() -> None:
+    layout = [panel(420, 340, 340, 300), panel(40, 40, 340, 600), panel(420, 40, 340, 260)]
+    result = ordering.order(layout, ReadingDirection.LTR)
+    assert positions(result.panels) == [(40, 40), (420, 40), (420, 340)]
+    assert result.confidence == 1.0
+
+
+def test_interlocking_layout_is_ambiguous() -> None:
+    # Overlapping extents on both axes cannot be cut cleanly.
+    layout = [panel(0, 0, 60, 60), panel(40, 40, 60, 60)]
+    result = ordering.order(layout, ReadingDirection.LTR)
+    assert positions(result.panels) == [(0, 0), (40, 40)]
+    assert result.confidence == 0.5
+
+
+def test_ambiguous_fallback_rtl() -> None:
+    layout = [panel(0, 0, 60, 60), panel(40, 0, 60, 60)]
+    rtl = ordering.order(layout, ReadingDirection.RTL)
+    assert positions(rtl.panels) == [(40, 0), (0, 0)]
+
+
+rect = st.builds(
+    panel,
+    st.integers(0, 500),
+    st.integers(0, 500),
+    st.integers(1, 200),
+    st.integers(1, 200),
+)
+
+
+@given(st.lists(rect, max_size=12), st.sampled_from(ReadingDirection))
+def test_ordering_is_a_permutation_with_valid_confidence(
+    panels: list[DetectedPanel], direction: ReadingDirection
+) -> None:
+    result = ordering.order(panels, direction)
+    assert sorted(map(id, result.panels)) == sorted(map(id, panels))
+    assert 0.0 <= result.confidence <= 1.0

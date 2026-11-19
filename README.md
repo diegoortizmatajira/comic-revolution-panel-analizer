@@ -1,2 +1,71 @@
-# comic-revolution-panel-analizer
-Service for analyzing comic images and producing a sequence of panel navigations for panel-guided navigation in comic readers 
+# Comic Panel Analyzer
+
+API that analyzes a comic book page and returns its panels, reading order, coordinates and
+a reliability score, so third-party apps can offer guided panel reading.
+
+## Run
+
+```sh
+uv sync
+cp .env.example .env            # set PANELS_API_KEYS
+uv run uvicorn app.main:app_factory --factory --reload
+```
+
+Interactive docs: http://localhost:8000/docs · OpenAPI: `/openapi.json` · Health: `/healthz`
+
+Or with Docker: `docker build -t panels . && docker run -p 8000:8000 -e PANELS_API_KEYS=change-me panels`
+
+## API
+
+All analyze endpoints require an `X-API-Key` header.
+
+```sh
+# URL
+curl -X POST localhost:8000/v1/panels/analyze -H 'X-API-Key: change-me' \
+  -H 'Content-Type: application/json' \
+  -d '{"image": {"url": "https://example.com/page.png"}, "options": {"reading_direction": "rtl"}}'
+
+# Base64 (or a data: URI)
+curl -X POST localhost:8000/v1/panels/analyze -H 'X-API-Key: change-me' \
+  -H 'Content-Type: application/json' \
+  -d "{\"image\": {\"base64\": \"$(base64 -w0 page.png)\"}}"
+
+# Upload
+curl -X POST localhost:8000/v1/panels/analyze/upload -H 'X-API-Key: change-me' \
+  -F file=@page.png -F reading_direction=ltr
+```
+
+Response:
+
+```json
+{
+  "image": {"width": 800, "height": 1200},
+  "reading_direction": "ltr",
+  "panels": [
+    {"id": 1, "order": 1,
+     "bbox": {"x": 40, "y": 40, "width": 340, "height": 540},
+     "bbox_normalized": {"x": 0.05, "y": 0.033, "width": 0.425, "height": 0.45},
+     "confidence": 1.0}
+  ],
+  "sequence_confidence": 1.0,
+  "method": "classical",
+  "warnings": []
+}
+```
+
+`confidence` is per-panel detection quality; `sequence_confidence` is how unambiguous the
+reading order is (1.0 = every panel separated by clean gutters).
+
+Errors share one shape: `{"code", "message", "details", "request_id"}` with statuses
+400, 401, 413, 415, 422, 429 (with `Retry-After`), 502 and 504.
+
+## Development
+
+```sh
+uv run pytest          # tests + coverage gate (90%)
+uv run ruff check . && uv run ruff format --check .
+uv run mypy            # strict
+uv run pre-commit install
+```
+
+Architecture notes: [docs/adr](docs/adr). Configuration: see `.env.example`.
