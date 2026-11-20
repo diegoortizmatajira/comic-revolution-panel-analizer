@@ -39,17 +39,26 @@ All numbers are from the evaluation harness (`docs/evaluation.md`) on the 34-pag
 pages, 11 generated), using the Inkwell `best.onnx` (`1:f240e1296efd`) **for local measurement
 only: it was not committed or distributed**. "Pages exactly right" is the harness `page_acc`.
 
-| Detector | Real pages exactly right | Real F1@50 | Generated pages exactly right |
-|---|---|---|---|
-| `projection` | 11 of 23 | 0.80 | 7 of 11 |
-| `ml` | 19 of 23 | 0.97 | 7 of 11 |
-| `hybrid` | 18 of 23 | 0.96 | 8 of 11 |
+| Detector | Real pages exactly right | Real F1@50 | Real F1@75 | Generated pages exactly right |
+|---|---|---|---|---|
+| `projection` | 15 of 23 | 0.90 | 0.75 | 8 of 11 |
+| `ml` | 16 of 23 | 0.96 | 0.79 | 7 of 11 |
+| `hybrid` | 19 of 23 | 0.95 | 0.85 | 8 of 11 |
 
-- **Hybrid never does worse than `projection` on any of the 34 pages**, and fixes 8 it got wrong.
-- **`ml` alone is better on real pages than `hybrid`** (19 against 18): the hybrid cannot tell when
-  a plausible-looking result is wrong (three `projection` failures merge panels but look normal).
-  Hybrid is the conservative option: it keeps pages `projection` already gets right, and runs the
-  model on only 9 of the 23 real pages (39%).
+Re-measured on 2026-11-20 with `projection@5` and the same weights. The first measurement
+(`projection` 11 of 23, `ml` 19 of 23, `hybrid` 18 of 23) predates the projection work on slanted
+gutters, frame lines, title banners and frameless panels, which lifted `projection` by four pages.
+`ml` went from 19 to 16 of 23 with the same weights; the cause was not investigated (the ordering
+code, the labels and the corpus changed in the meantime), so the two tables are not directly
+comparable.
+
+- **`hybrid` is now the best option on real pages** (19 of 23, against 16 for `ml` and 15 for
+  `projection`). It keeps the pages `projection` already gets right and lets the model rescue the
+  rest; `ml` alone has no such safety net and loses pages `projection` gets right. Over the whole
+  34-page corpus `hybrid` is exactly right on 0.79 of pages, `ml` and `projection` on 0.68 each.
+  This reverses the earlier conclusion that `ml` alone beat `hybrid`.
+- The earlier claims that hybrid never does worse than `projection` on any page, and that the model
+  ran on 9 of 23 real pages, were not re-checked after the projection changes.
 - Reading order matters as much as detection. With the old strict XY-cut the same model got only
   10 of 23 real pages exactly right even though it found nearly every panel, because its boxes
   overlap by a few pixels and no clean cut exists. The XY-cut now has a **gap tolerance** of 8% of
@@ -62,7 +71,7 @@ only: it was not committed or distributed**. "Pages exactly right" is the harnes
 panel whose long side is **at least 5 times its short side** (a caption strip). A thin panel that
 lies wholly above every other panel is the title banner `projection` returns on purpose as a first
 panel, so it does not count: the model never returns titles and would only drop it.
-On the corpus these rules flag 9 of the 12 pages `projection` gets wrong and none of the 11 it
+On the original measurement these rules flagged 9 of the 12 pages `projection` got wrong and none of the 11 it
 gets right; the model's answer replaces `projection`'s when it finds at least one panel.
 
 The three thresholds (3 panels, 5:1, 8% tolerance) were chosen on this small corpus and are
