@@ -62,6 +62,22 @@ def test_ambiguous_fallback_rtl() -> None:
     assert positions(rtl.panels) == [(40, 0), (0, 0)]
 
 
+def test_uncuttable_group_reads_panels_with_near_equal_tops_left_to_right() -> None:
+    # Diagonal gutters make the boxes overlap on both axes, so no clean cut exists. The
+    # bottom-right panel's top is 75px above the bottom-left's: still the same row.
+    layout = [
+        panel(0, 0, 1988, 1188),
+        panel(0, 1190, 1641, 939),
+        panel(1642, 1297, 346, 724),
+        panel(1284, 1823, 704, 1233),
+        panel(0, 1898, 1283, 1158),
+    ]
+    result = ordering.order(layout, ReadingDirection.LTR)
+    assert positions(result.panels) == [(0, 0), (0, 1190), (1642, 1297), (0, 1898), (1284, 1823)]
+    rtl = ordering.order(layout[3:], ReadingDirection.RTL)
+    assert positions(rtl.panels) == [(1284, 1823), (0, 1898)]
+
+
 rect = st.builds(
     panel,
     st.integers(0, 500),

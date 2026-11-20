@@ -54,7 +54,7 @@ Response:
   ],
   "sequence_confidence": 1.0,
   "method": "projection",
-  "version": "projection@1+xycut@2",
+  "version": "projection@1+xycut@3",
   "whole_page_fallback": false,
   "warnings": []
 }

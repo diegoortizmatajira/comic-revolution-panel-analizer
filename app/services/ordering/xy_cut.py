@@ -29,7 +29,7 @@ class XYCutOrdering:
     """
 
     name = "xycut"
-    version = "2"  # 2: gap tolerance (default 8%)
+    version = "3"  # 3: unsplittable groups read as rows; 2: gap tolerance (default 8%)
 
     def __init__(self, gap_tolerance: float = DEFAULT_GAP_TOLERANCE) -> None:
         self._tolerance = gap_tolerance
@@ -58,10 +58,28 @@ class XYCutOrdering:
                 columns.reverse()
             return self._recurse(columns, direction)
 
-        fallback = sorted(group, key=lambda p: (p.bbox.y, p.bbox.x))
-        if direction is ReadingDirection.RTL:
-            fallback = sorted(group, key=lambda p: (p.bbox.y, -p.bbox.right))
-        return fallback, len(group)
+        return self._by_rows(group, direction), len(group)
+
+    def _by_rows(
+        self, group: tuple[DetectedPanel, ...], direction: ReadingDirection
+    ) -> list[DetectedPanel]:
+        """Order panels that cannot be cut: tops within the tolerance count as one row.
+
+        Sorting by exact top edge would put a panel first just because its top sits a few
+        pixels higher, even when it is the right-hand panel of the same row.
+        """
+        by_top = sorted(group, key=lambda p: p.bbox.y)
+        slack = self._tolerance * (max(p.bbox.bottom for p in group) - by_top[0].bbox.y)
+        rows: list[list[DetectedPanel]] = [[by_top[0]]]
+        for panel in by_top[1:]:
+            if panel.bbox.y - rows[-1][0].bbox.y <= slack:
+                rows[-1].append(panel)
+            else:
+                rows.append([panel])
+        rtl = direction is ReadingDirection.RTL
+        return [
+            p for row in rows for p in sorted(row, key=lambda p: -p.bbox.right if rtl else p.bbox.x)
+        ]
 
     def _recurse(
         self, parts: list[tuple[DetectedPanel, ...]], direction: ReadingDirection
