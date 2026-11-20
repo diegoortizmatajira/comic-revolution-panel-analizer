@@ -8,7 +8,9 @@
 
 Unlike contour detection this does not need panels to be disconnected blobs, so panels
 whose borders or art nearly touch are still separated as long as a gutter runs between
-them. Known limitations: panels with no gutter at all stay merged; borderless panels
+them. When no straight gutter exists, a slanted one is followed with a minimum-content path
+(seam). Known limitations: panels with no gutter at all stay merged; title banners are
+not told apart from panels; borderless panels
 whose artwork contains background-coloured bands can be split by mistake; a full-bleed
 splash page (no margin to sample) yields no panels.
 """
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import cv2
 import numpy as np
 
 from app.domain.models import BoundingBox, DetectedPanel, Detection
@@ -32,7 +35,7 @@ _Region = tuple[int, int, int, int]  # y0, y1, x0, x1 (end-exclusive)
 
 class ProjectionPanelDetector:
     name = "projection"
-    version = "1"
+    version = "2"
 
     def __init__(  # noqa: PLR0913
         self,
@@ -44,6 +47,8 @@ class ProjectionPanelDetector:
         min_area_ratio: float = 0.02,
         border_fraction: float = 0.01,
         max_depth: int = 12,
+        seam_content_ratio: float = 0.004,
+        min_seam_side_ratio: float = 0.03,
     ) -> None:
         self._tolerance = color_tolerance
         self._gutter_ratio = gutter_content_ratio
@@ -52,6 +57,8 @@ class ProjectionPanelDetector:
         self._min_area_ratio = min_area_ratio
         self._border_fraction = border_fraction
         self._max_depth = max_depth
+        self._seam_content_ratio = seam_content_ratio
+        self._min_seam_side_ratio = min_seam_side_ratio
 
     def detect(self, page: NDArray[np.uint8]) -> Detection:
         height, width = page.shape[:2]
@@ -105,7 +112,71 @@ class ProjectionPanelDetector:
                         )
                         self._split(mask, child, depth + 1, out)
                     return
+        if depth < self._max_depth:
+            halves = self._seam_split(sub)
+            if halves is not None:
+                for half in halves:
+                    padded = np.zeros_like(mask)
+                    padded[y0:y1, x0:x1] = half
+                    self._split(padded, (y0, y1, x0, x1), depth + 1, out)
+                return
         out.append((y0, y1, x0, x1))
+
+    def _seam_split(self, sub: Mask) -> tuple[Mask, Mask] | None:
+        """Cut a region along a slanted gutter: the cheapest path through the content mask.
+
+        Used only when no straight row/column gutter exists. The path may drift one pixel per
+        step, so it follows a slanted gutter; it is accepted only if it runs through (almost)
+        no content for the whole region, i.e. it really is a gutter and not a cut through art.
+        """
+        best: tuple[float, Mask, Mask] | None = None
+        for transpose in (False, True):  # False: seam runs left to right, cutting rows apart
+            oriented = sub.T if transpose else sub
+            found = self._cheapest_seam(oriented)
+            if found is None:
+                continue
+            cost, upper, lower = found
+            if best is None or cost < best[0]:
+                best = (cost, upper.T if transpose else upper, lower.T if transpose else lower)
+        return None if best is None else (best[1], best[2])
+
+    def _cheapest_seam(self, sub: Mask) -> tuple[float, Mask, Mask] | None:
+        height, width = sub.shape
+        clearance = self._min_gutter(height) | 1
+        blocked = cv2.dilate(sub.astype(np.uint8), np.ones((clearance, 1), np.uint8)) > 0
+        cost = blocked.astype(np.float32)
+        total = np.zeros((height, width), dtype=np.float32)
+        step = np.zeros((height, width), dtype=np.int8)
+        total[:, 0] = cost[:, 0]
+        inf = np.float32(np.inf)
+        for x in range(1, width):
+            prev = total[:, x - 1]
+            up = np.concatenate(([inf], prev[:-1]))
+            down = np.concatenate((prev[1:], [inf]))
+            # Prefer going straight on ties, so a straight gutter stays straight.
+            stacked = np.stack((prev, up + 1e-3, down + 1e-3))
+            choice = stacked.argmin(axis=0)
+            total[:, x] = stacked.min(axis=0) + cost[:, x]
+            step[:, x] = choice
+        end = int(total[:, -1].argmin())
+        if total[end, -1] > self._seam_content_ratio * width * 10:  # blocked pixels allowed
+            return None
+        path = np.empty(width, dtype=np.int64)
+        y = end
+        for x in range(width - 1, -1, -1):
+            path[x] = y
+            c = step[y, x]
+            y += 0 if c == 0 else (-1 if c == 1 else 1)
+        if float(blocked[path, np.arange(width)].mean()) > self._seam_content_ratio:
+            return None
+        rows = np.arange(height)[:, None]
+        upper = sub & (rows < path[None, :])
+        lower = sub & (rows > path[None, :])
+        area = sub.sum()
+        floor = self._min_seam_side_ratio * area
+        if upper.sum() < floor or lower.sum() < floor:
+            return None
+        return float(blocked[path, np.arange(width)].mean()), upper, lower
 
     def _min_gutter(self, length: int) -> int:
         return max(2, round(length * self._min_gutter_ratio))

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pytest
 from app.domain.models import ReadingDirection
@@ -95,3 +96,10 @@ def test_real_sample_001_is_split_into_separate_panels() -> None:
     # detector found 2 panels here; the projection detector separates at least 4.
     image = decode_image((SAMPLES / "001.webp").read_bytes(), ImageLimits(10**8, 10**8))
     assert len(detector.detect(image.pixels).panels) >= 4
+
+
+def test_slanted_gutter_is_cut_along_its_slope() -> None:
+    page = np.full((1200, 800, 3), 255, dtype=np.uint8)
+    cv2.fillPoly(page, [np.array([[40, 40], [760, 40], [760, 420], [40, 700]])], (60, 90, 200))
+    cv2.fillPoly(page, [np.array([[40, 760], [760, 480], [760, 1160], [40, 1160]])], (200, 90, 60))
+    assert len(detector.detect(page).panels) == 2

@@ -180,7 +180,6 @@ def test_borderless_panels_are_separated_by_white_gutters() -> None:
     assert [(p.bbox.x, p.bbox.y) for p in result.panels] == [(40, 40), (40, 580), (420, 580)]
 
 
-@pytest.mark.xfail(strict=True, reason="diagonal gutters cannot be cut by rows/columns")
 def test_diagonal_gutter_panels_are_separated() -> None:
     assert len(analyze_array(diagonal_page()).panels) == 2
 
