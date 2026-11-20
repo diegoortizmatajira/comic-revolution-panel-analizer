@@ -77,6 +77,7 @@ def test_public_domain_pages_yield_well_formed_results(
 
 # Pages the projection detector gets exactly right, and pages it is known to get wrong (#3).
 CORRECT_PAGES = [
+    "nature_boy_4",
     "western_fighters_8",
     "public_004",
     "public_005",
@@ -90,8 +91,7 @@ CORRECT_PAGES = [
     "moon-mullings-003-17",
 ]
 KNOWN_FAILURES = {
-    "nature_boy_4": "two bottom panels separated by a narrow gutter stay merged",
-    "western_fighters_6": "caption text sits in the gutters, so no clean row exists",
+    "western_fighters_6": "stained paper hides the page background; captions fill the gutters",
     "public_001": "thin frames on newsprint: only 4 of 7 panels are separated",
     "public_002": "L-shaped panel and bleeding art leave one page-sized panel",
     "public_003": "slanted gutters and touching art leave one page-sized panel",
@@ -129,7 +129,7 @@ def test_every_fixture_page_is_accounted_for() -> None:
 def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
     result = analyze_file("western_fighters_8.jpg", ReadingDirection.RTL)
     top, first_bottom, second_bottom = result.panels
-    assert top.bbox.y < 100
+    assert abs(top.bbox.y - 268) < 10  # the title lettering above the frame is not a panel
     assert first_bottom.bbox.x > second_bottom.bbox.x
 
 

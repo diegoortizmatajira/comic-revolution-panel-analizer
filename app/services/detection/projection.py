@@ -17,6 +17,7 @@ splash page (no margin to sample) yields no panels.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import cv2
@@ -24,6 +25,7 @@ import numpy as np
 
 from app.domain.models import BoundingBox, DetectedPanel, Detection
 from app.services.detection.content import content_mask
+from app.services.detection.frames import FrameLines
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -31,11 +33,20 @@ if TYPE_CHECKING:
     Mask = NDArray[np.bool_]
 
 _Region = tuple[int, int, int, int]  # y0, y1, x0, x1 (end-exclusive)
+_MAX_FRAME_TRIES = 6  # frame lines tried per region, longest first
+
+
+@dataclass(slots=True)
+class _Frames:
+    """Frame lines of the page and the rows already cut along them (per ``detect`` call)."""
+
+    lines: FrameLines
+    cuts: list[int] = field(default_factory=list)
 
 
 class ProjectionPanelDetector:
     name = "projection"
-    version = "2"
+    version = "3"
 
     def __init__(  # noqa: PLR0913
         self,
@@ -51,6 +62,7 @@ class ProjectionPanelDetector:
         min_seam_side_ratio: float = 0.03,
         seam_straightness: float = 0.01,
         clean_seam_ratio: float = 0.004,
+        banner_area_ratio: float = 0.06,
     ) -> None:
         self._tolerance = color_tolerance
         self._gutter_ratio = gutter_content_ratio
@@ -63,31 +75,69 @@ class ProjectionPanelDetector:
         self._min_seam_side_ratio = min_seam_side_ratio
         self._seam_straightness = seam_straightness
         self._clean_seam_ratio = clean_seam_ratio
+        self._banner_area_ratio = banner_area_ratio
 
     def detect(self, page: NDArray[np.uint8]) -> Detection:
         height, width = page.shape[:2]
         mask = self._content_mask(page)
         regions: list[_Region] = []
-        self._split(mask, (0, height, 0, width), 0, regions)
+        frames = _Frames(FrameLines.find(page))
+        self._split(mask, (0, height, 0, width), 0, regions, frames)
 
         min_area = self._min_area_ratio * width * height
-        panels: list[DetectedPanel] = []
-        for y0, y1, x0, x1 in regions:
-            if (y1 - y0) * (x1 - x0) < min_area:
-                continue
-            fill = float(mask[y0:y1, x0:x1].mean())
-            panels.append(
-                DetectedPanel(
-                    bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0),
-                    confidence=min(1.0, max(0.0, fill)),
-                )
+        big = [r for r in regions if (r[1] - r[0]) * (r[3] - r[2]) >= min_area]
+        text = [r for r in regions if self._is_text_only(frames, r)]
+        kept = [r for r in big if r not in text]
+        banner_area = self._banner_area_ratio * width * height
+        kept = self._attach_strips(kept, text, 0.02 * height, banner_area)
+        panels = [
+            DetectedPanel(
+                bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0),
+                confidence=min(1.0, max(0.0, float(mask[y0:y1, x0:x1].mean()))),
             )
+            for y0, y1, x0, x1 in kept
+        ]
         return Detection(panels=tuple(panels), method=self.name)
+
+    @staticmethod
+    def _attach_strips(
+        kept: list[_Region], strips: list[_Region], tol: float, banner_area: float
+    ) -> list[_Region]:
+        """Hand each text-only strip to its neighbours, unless it is title lettering.
+
+        A strip between two panels (balloons, captions, a caption box crossing a frame) belongs
+        to one of them, and which is not knowable from the pixels alone, so it is shared at 40%
+        of its height: the panel above grows down to that line, the panel below grows up
+        to it (balloons hang from the panel below more often than captions rise). A strip with
+        no panel above it is a caption box at the top of the panel below, or, if large, title
+        lettering, which is dropped.
+        """
+        result = list(kept)
+        for sy0, sy1, sx0, sx1 in strips:
+            above = [
+                i
+                for i, (_, y1, x0, x1) in enumerate(result)
+                if y1 <= sy0 + tol and min(x1, sx1) > max(x0, sx0)
+            ]
+            if not above and (sy1 - sy0) * (sx1 - sx0) >= banner_area:
+                continue
+            middle = sy0 + (sy1 - sy0) * 2 // 5 if above else sy0
+            for i, (y0, y1, x0, x1) in enumerate(result):
+                shared = min(x1, sx1) - max(x0, sx0)
+                if shared < 0.3 * (x1 - x0):
+                    continue
+                if i in above and abs(y1 - sy0) <= tol:
+                    result[i] = (y0, max(y1, middle), x0, x1)
+                elif abs(y0 - sy1) <= tol:
+                    result[i] = (min(y0, middle), y1, x0, x1)
+        return result
 
     def _content_mask(self, page: NDArray[np.uint8]) -> Mask:
         return content_mask(page, self._tolerance, self._border_fraction)
 
-    def _split(self, mask: Mask, region: _Region, depth: int, out: list[_Region]) -> None:
+    def _split(
+        self, mask: Mask, region: _Region, depth: int, out: list[_Region], frames: _Frames
+    ) -> None:
         y0, y1, x0, x1 = region
         sub = mask[y0:y1, x0:x1]
 
@@ -114,7 +164,7 @@ class ProjectionPanelDetector:
                         child = (
                             (y0 + s0, y0 + s1, x0, x1) if axis == 1 else (y0, y1, x0 + s0, x0 + s1)
                         )
-                        self._split(mask, child, depth + 1, out)
+                        self._split(mask, child, depth + 1, out, frames)
                     return
         if depth < self._max_depth:
             halves = self._seam_split(sub)
@@ -122,9 +172,49 @@ class ProjectionPanelDetector:
                 for half in halves:
                     padded = np.zeros_like(mask)
                     padded[y0:y1, x0:x1] = half
-                    self._split(padded, (y0, y1, x0, x1), depth + 1, out)
+                    self._split(padded, (y0, y1, x0, x1), depth + 1, out, frames)
                 return
+            big_enough = (y1 - y0) * (x1 - x0) >= self._min_area_ratio * mask.shape[0] * mask.shape[
+                1
+            ]
+            candidates = frames.lines.cut_rows((y0, y1, x0, x1)) if big_enough else []
+            for cut in candidates[:_MAX_FRAME_TRIES]:
+                if self._cut_pays_off(mask, (y0, y1, x0, x1), cut, depth, frames):
+                    frames.cuts.append(cut)
+                    self._split(mask, (y0, cut, x0, x1), depth + 1, out, frames)
+                    self._split(mask, (cut, y1, x0, x1), depth + 1, out, frames)
+                    return
         out.append((y0, y1, x0, x1))
+
+    def _cut_pays_off(
+        self, mask: Mask, region: _Region, cut: int, depth: int, frames: _Frames
+    ) -> bool:
+        """A frame line is only trusted if cutting there is useful.
+
+        Lines inside artwork look like frame edges too. A real frame cut either sets off
+        something that is not a panel (title lettering, a caption strip) or lets a part split
+        further (stacked panels with no gutter); a cut through one panel does neither.
+        """
+        y0, y1, x0, x1 = region
+        trial = _Frames(frames.lines, [*frames.cuts, cut])
+        pieces: list[_Region] = []
+        self._split(mask, (y0, cut, x0, x1), depth + 1, pieces, trial)
+        self._split(mask, (cut, y1, x0, x1), depth + 1, pieces, trial)
+        min_area = self._min_area_ratio * mask.shape[0] * mask.shape[1]
+        big = [r for r in pieces if (r[1] - r[0]) * (r[3] - r[2]) >= min_area]
+        text_only = [r for r in big if self._is_text_only(trial, r)]
+        return bool(text_only) or len(big) > 2
+
+    @staticmethod
+    def _is_text_only(frames: _Frames, region: _Region) -> bool:
+        """A region cut off along a frame line that has at most one frame side is not a panel.
+
+        Title lettering and caption strips sit next to a panel's frame line but have no frame
+        of their own; a real panel has frame lines on several of its sides.
+        """
+        y0, y1, *_ = region
+        touches_cut = any(abs(y - cut) <= 4 for cut in frames.cuts for y in (y0, y1))
+        return touches_cut and frames.lines.sides(region) <= 1
 
     def _seam_split(self, sub: Mask) -> tuple[Mask, Mask] | None:
         """Cut a region along a slanted gutter: the cheapest path through the content mask.

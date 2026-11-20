@@ -132,3 +132,41 @@ def test_wobbly_gutter_does_not_split_a_single_panel() -> None:
     page = np.full((700, 1100, 3), MAROON, dtype=np.uint8)
     page[20:680, 20:1080] = (200, 120, 60)
     assert len(detector.detect(page).panels) == 1
+
+
+def banner_page() -> np.ndarray:
+    """Title lettering above two framed panels that touch the lettering's baseline."""
+    page = np.full((1200, 800, 3), 240, dtype=np.uint8)
+    rng = np.random.default_rng(3)
+    for x in range(70, 650, 40):  # overlapping letters of uneven height
+        page[int(rng.integers(80, 150)) : 230, x : x + 60] = (30, 30, 200)
+    page[230:236, 40:760] = 0  # the top frame line sits right under the lettering
+    page[236:1160, 40:760] = (200, 170, 120)
+    page[700:706, 40:760] = 0  # a frame line between the two stacked panels
+    page[236:1160, 40:46] = 0
+    page[236:1160, 754:760] = 0
+    page[1154:1160, 40:760] = 0
+    return page
+
+
+def test_title_lettering_above_a_frame_line_is_not_a_panel() -> None:
+    found = boxes(banner_page())
+    assert found, "the framed panels are still found"
+    assert all(y >= 225 for _, y, _, _ in found)
+
+
+def test_a_strip_between_two_panels_is_shared_between_them() -> None:
+    kept = [(0, 100, 0, 100), (200, 300, 0, 100)]  # y0, y1, x0, x1
+    strip = (100, 200, 0, 100)
+    above, below = ProjectionPanelDetector._attach_strips(kept, [strip], 10, 5_000)
+    assert above == (0, 140, 0, 100)
+    assert below == (140, 300, 0, 100)
+
+
+def test_a_small_strip_at_the_top_goes_to_the_panel_below_but_a_banner_is_dropped() -> None:
+    panel = [(200, 300, 0, 100)]
+    small, banner = (150, 200, 0, 100), (0, 200, 0, 100)
+    assert ProjectionPanelDetector._attach_strips(panel, [small], 10, 20_000) == [
+        (150, 300, 0, 100)
+    ]
+    assert ProjectionPanelDetector._attach_strips(panel, [banner], 10, 20_000) == panel

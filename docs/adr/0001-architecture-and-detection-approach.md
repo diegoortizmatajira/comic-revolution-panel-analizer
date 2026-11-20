@@ -23,11 +23,19 @@
   fallback for slanted gutters: when no clean row or column exists it cuts along the
   minimum-content path across the region, accepted only if it is nearly empty (up to 2%
   blocked pixels, and then only if nearly straight). That fixed the diagonal and
-  slightly slanted pages but not frame-dependent ones (`nature_boy_4`,
-  `western_fighters_6`, `samples/002`): frame lines are broken by balloons and art, and a
-  simple long-line cut also splits panels through artwork (it broke `western_fighters_8`).
-  Those need frame-line grouping and a rule for dropping text-only regions (title banners,
-  caption strips). These cases are what the ML detector is for.
+  slightly slanted pages. Projection v3 then falls back to frame lines (`frames.py`): Hough
+  segments, merged when collinear, so a frame broken by balloons still reads as one line. A
+  region is cut at a frame line only if the cut pays off, meaning it sets off a region with
+  at most one frame side (title lettering, a caption strip) or lets a part split further. Such a
+  strip is not thrown away: balloons and captions between panels are shared at 40% of the
+  strip's height between the panel above and the one below, and only large lettering with no
+  panel above it is dropped;
+  otherwise lines inside artwork would cut real panels (a plain long-line cut broke
+  `western_fighters_8`). This fixed `nature_boy_4`. Still failing: `western_fighters_6` (stained
+  paper makes the background estimate useless, so almost the whole page counts as content) and
+  `samples/002` (top bleed touching the next row; four of five panels found). Pages whose
+  frames are too broken for the lines to be found keep their banners and caption strips.
+  These cases are what the ML detector is for.
 - **Reading order:** recursive XY-cut honouring `ltr`/`rtl`. `sequence_confidence`
   measures layout ambiguity only (share of panels that could not be cut cleanly);
   per-panel `confidence` measures detection quality.
