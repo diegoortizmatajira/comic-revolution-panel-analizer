@@ -76,11 +76,11 @@ against without it (f1@75, with the model of ADR 0002):
 | detector | `captions` pages | all 23 real pages |
 |---|---|---|
 | `projection` | 0.81 to 0.93 | 0.75 to 0.76 |
-| `ml` | 0.88 to 0.97 | 0.79 to 0.79 |
-| `hybrid` | 0.93 to 0.95 | 0.85 to 0.81 |
+| `ml` | 0.88 to 0.97 | 0.79 to 0.80 |
+| `hybrid` | 0.93 to 0.95 | 0.85 to 0.82 |
 
 The `captions` rows now agree with what a reader sees. Across all real pages `hybrid` loses a little
-(0.85 to 0.81): the pages without a `caption_panels` list are still scored frame-tight, and the
+(0.85 to 0.82): the pages without a `caption_panels` list are still scored frame-tight, and the
 claimer also grows boxes on them wherever lettering touches a top edge. Exactly-right pages do not
 move (`page_acc` is 0.65, 0.65 and 0.83 on real pages, as before, for `projection`, `ml` and `hybrid`)
 except `ml`, which goes from 0.70 to 0.65 (the cause was not investigated).

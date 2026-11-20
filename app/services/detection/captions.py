@@ -19,13 +19,14 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from app.domain.models import BoundingBox, DetectedPanel
 from app.services.detection.content import contrast_mask
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    import numpy as np
     from numpy.typing import NDArray
 
     from app.domain.ports import PanelRefiner
@@ -34,10 +35,11 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class CaptionClaimer:
     name: str = "caption-claim"
-    version: str = "1"  # bump when a change could alter the output
+    version: str = "2"  # bump when a change could alter the output (2: skip rows others cover)
     max_expand_ratio: float = 0.12  # farthest a top edge may move, as a fraction of page height
     touch_ratio: float = 0.012  # lettering must start this close to the edge (page height)
     gap_ratio: float = 0.006  # ink-free lines that end the lettering (page height)
+    blocked_share: float = 0.5  # a row this covered by other panels ends the claim
     min_overlap: float = 0.3  # share of the panel's width a panel above must cover to bound it
     ink_ratio: float = 0.003  # fraction of a line that must be ink to count
     min_ink_pixels: int = 2
@@ -59,7 +61,8 @@ class CaptionClaimer:
         refined = []
         for panel, (x0, y0, x1, y1) in zip(panels, boxes, strict=True):
             floor = min(y0, max(self._ceiling(boxes, (x0, y0, x1, y1), tol), y0 - reach))
-            top = self._claim(mask, x0, x1, y0, floor, touch, gap)
+            others = [b for b in boxes if b != (x0, y0, x1, y1)]
+            top = self._claim(mask, others, (x0, x1, y0), floor, touch, gap)
             refined.append(
                 panel
                 if top == y0
@@ -82,15 +85,35 @@ class CaptionClaimer:
         return max(bottoms, default=0)
 
     def _claim(  # noqa: PLR0913, PLR0917
-        self, mask: NDArray[np.bool_], x0: int, x1: int, y0: int, floor: int, touch: int, gap: int
+        self,
+        mask: NDArray[np.bool_],
+        others: list[tuple[int, int, int, int]],
+        edge_box: tuple[int, int, int],
+        floor: int,
+        touch: int,
+        gap: int,
     ) -> int:
-        """Top edge after claiming the lettering above ``y0``, never above ``floor``."""
+        """Top edge after claiming the unclaimed lettering above ``y0``, never above ``floor``.
+
+        Rows that other panels' boxes cover are not unclaimed: their ink belongs to those panels
+        (boxes of diagonal or full-bleed layouts overlap), so the claim stops at the first row
+        mostly covered by another panel and ignores the covered part of the rows before it.
+        """
+        x0, x1, y0 = edge_box
+        covered = np.zeros((y0 - floor, x1 - x0), dtype=np.bool_)
+        for ox0, oy0, ox1, oy1 in others:
+            top, bottom = max(oy0, floor) - floor, min(oy1, y0) - floor
+            left, right = max(ox0, x0) - x0, min(ox1, x1) - x0
+            if top < bottom and left < right:
+                covered[top:bottom, left:right] = True
+        blocked = covered.mean(axis=1) > self.blocked_share if covered.size else covered.any(axis=1)
         threshold = max(self.min_ink_pixels, self.ink_ratio * (x1 - x0))
-        inked = mask[floor:y0, x0:x1].sum(axis=1) >= threshold  # rows floor .. y0-1
-        rows = len(inked)
+        inked = (mask[floor:y0, x0:x1] & ~covered).sum(axis=1) >= threshold  # rows floor .. y0-1
         edge = None  # index of the last ink row of the claimed run, walking up from y0
         clean = 0
-        for index in range(rows - 1, -1, -1):
+        for index in range(len(inked) - 1, -1, -1):
+            if blocked[index]:
+                break
             if inked[index]:
                 edge, clean = index, 0
             else:

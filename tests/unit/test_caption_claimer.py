@@ -75,7 +75,7 @@ def test_ignores_lettering_outside_the_panel_columns() -> None:
 
 def test_chain_applies_every_refiner_in_order() -> None:
     chain = ChainedRefiner(EdgeSnapRefiner(), CaptionClaimer())
-    assert chain.version == f"edge-snap@{EdgeSnapRefiner().version}+caption-claim@1"
+    assert chain.version == f"edge-snap@{EdgeSnapRefiner().version}+caption-claim@2"
     assert chain.refine(blank(), []) == ()
 
 
@@ -94,3 +94,21 @@ def test_caption_panels_must_match_the_panels() -> None:
     PageLabels.model_validate({"panels": [box], "caption_panels": [box]})
     with pytest.raises(ValidationError):
         PageLabels.model_validate({"panels": [box], "caption_panels": [box, box]})
+
+
+def test_does_not_claim_art_that_another_panels_box_covers() -> None:
+    """Diagonal or full-bleed layouts: boxes overlap, and the art above is another panel's."""
+    page = blank()
+    box(page, 20, 100, 580, 500)  # panel A's art, drawn as outlines
+    box(page, 60, 160, 540, 440)
+    box(page, 100, 500, 500, 700)  # panel B, whose box top (400) lies inside A's box
+    # A's box ends at 500, B's box starts at 400: the band 400-500 is covered by A.
+    assert tops(page, (20, 100, 560, 400), (100, 400, 400, 300))[1] == 400
+
+
+def test_still_claims_the_uncovered_part_of_a_band() -> None:
+    page = blank()
+    box(page, 20, 100, 580, 300)  # panel A
+    box(page, 100, 330, 500, 700)  # panel B
+    box(page, 120, 310, 480, 330)  # caption between them, outside both boxes
+    assert tops(page, (20, 100, 560, 200), (100, 330, 400, 370))[1] == 310
