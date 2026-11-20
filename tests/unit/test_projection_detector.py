@@ -103,3 +103,32 @@ def test_slanted_gutter_is_cut_along_its_slope() -> None:
     cv2.fillPoly(page, [np.array([[40, 40], [760, 40], [760, 420], [40, 700]])], (60, 90, 200))
     cv2.fillPoly(page, [np.array([[40, 760], [760, 480], [760, 1160], [40, 1160]])], (200, 90, 60))
     assert len(detector.detect(page).panels) == 2
+
+
+def wobbly_gutter_page(*, bridged: bool) -> np.ndarray:
+    """Two dark-framed panels split by a thin, slightly slanted, jagged gutter."""
+    height, width = 700, 1100
+    page = np.full((height, width, 3), MAROON, dtype=np.uint8)
+    rng = np.random.default_rng(1)
+    rows = np.arange(height)
+    centre = 520 + 0.015 * rows + np.cumsum(rng.integers(-1, 2, height)) * 0.3
+    for y in rows:
+        left, right = int(centre[y]) - 5, int(centre[y]) + 5
+        page[y, 20:left] = (200, 120, 60)
+        page[y, right : width - 20] = (60, 140, 200)
+    page[:20] = page[-20:] = MAROON
+    if bridged:  # art from both panels touches across the gutter for a few rows
+        for y in range(300, 310):
+            page[y, int(centre[y]) - 6 : int(centre[y]) + 6] = (20, 20, 20)
+    return page
+
+
+@pytest.mark.parametrize("bridged", [False, True])
+def test_wobbly_gutter_splits_even_when_art_bridges_it(bridged: bool) -> None:
+    assert len(detector.detect(wobbly_gutter_page(bridged=bridged)).panels) == 2
+
+
+def test_wobbly_gutter_does_not_split_a_single_panel() -> None:
+    page = np.full((700, 1100, 3), MAROON, dtype=np.uint8)
+    page[20:680, 20:1080] = (200, 120, 60)
+    assert len(detector.detect(page).panels) == 1

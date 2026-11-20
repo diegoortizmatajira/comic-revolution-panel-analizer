@@ -47,8 +47,10 @@ class ProjectionPanelDetector:
         min_area_ratio: float = 0.02,
         border_fraction: float = 0.01,
         max_depth: int = 12,
-        seam_content_ratio: float = 0.004,
+        seam_content_ratio: float = 0.02,
         min_seam_side_ratio: float = 0.03,
+        seam_straightness: float = 0.01,
+        clean_seam_ratio: float = 0.004,
     ) -> None:
         self._tolerance = color_tolerance
         self._gutter_ratio = gutter_content_ratio
@@ -59,6 +61,8 @@ class ProjectionPanelDetector:
         self._max_depth = max_depth
         self._seam_content_ratio = seam_content_ratio
         self._min_seam_side_ratio = min_seam_side_ratio
+        self._seam_straightness = seam_straightness
+        self._clean_seam_ratio = clean_seam_ratio
 
     def detect(self, page: NDArray[np.uint8]) -> Detection:
         height, width = page.shape[:2]
@@ -167,8 +171,16 @@ class ProjectionPanelDetector:
             path[x] = y
             c = step[y, x]
             y += 0 if c == 0 else (-1 if c == 1 else 1)
-        if float(blocked[path, np.arange(width)].mean()) > self._seam_content_ratio:
+        blocked_ratio = float(blocked[path, np.arange(width)].mean())
+        if blocked_ratio > self._seam_content_ratio:
             return None
+        if blocked_ratio > self._clean_seam_ratio:
+            # Bridged by a little art (jagged borders): only believable if it is a straight line.
+            xs = np.arange(width)
+            slope, intercept = np.polyfit(xs, path, 1)
+            deviation = float(np.abs(path - (slope * xs + intercept)).max())
+            if deviation > self._seam_straightness * width:
+                return None
         rows = np.arange(height)[:, None]
         upper = sub & (rows < path[None, :])
         lower = sub & (rows > path[None, :])
