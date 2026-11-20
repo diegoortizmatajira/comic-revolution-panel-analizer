@@ -63,6 +63,40 @@ Response:
 `confidence` is per-panel detection quality; `sequence_confidence` is how unambiguous the
 reading order is (1.0 = every panel separated by clean gutters).
 
+### Processing options (per request)
+
+Every setting that shapes the analysis has a server-wide default (an environment variable, see
+`.env.example`) that a request can override, by `options` in the JSON body or by form fields of the
+same name on the upload endpoint. A request that sets nothing gets the defaults.
+
+```sh
+curl -X POST localhost:8000/v1/panels/analyze -H 'X-API-Key: change-me' \
+  -H 'Content-Type: application/json' \
+  -d '{"image": {"url": "https://example.com/page.png"},
+       "options": {"min_area_ratio": 0.005, "claim_captions": true}}'
+
+curl -X POST localhost:8000/v1/panels/analyze/upload -H 'X-API-Key: change-me' \
+  -F file=@page.png -F color_tolerance=60 -F refine_edges=true
+```
+
+`GET /v1/panels/options` lists every option with this server's default, range and a description:
+`reading_direction`, `detector`, `refine_edges`, `refine_max_expand`, `claim_captions`,
+`color_tolerance`, `gutter_content_ratio`, `min_gutter_ratio`, `min_area_ratio`,
+`hybrid_min_panels`, `hybrid_max_aspect`, `ml_confidence`, `ml_nms_iou`, `order_gap_tolerance`.
+The demo page builds its "Processing options" controls from that list and sends only the values
+you changed.
+
+- An out-of-range value or an unknown option in the JSON body is a `422 validation_error`. On the
+  upload endpoint, unknown form fields are ignored (the file itself is one).
+- `detector` may be `ml` or `hybrid` only when the server has a model (`PANELS_ML_MODEL`); otherwise
+  the request fails with `422 invalid_option`.
+- Overrides that differ from the defaults add `+opts@<hash>` to the response `version`; the same
+  overrides always give the same hash, and an override equal to the default adds nothing. So
+  `version` still tells you when two results are comparable. The reading direction is not part of
+  it, as before.
+- The ML weights load once per server; a request that changes `ml_confidence` or `ml_nms_iou`
+  reuses them.
+
 ### Client examples
 
 Python (`pip install httpx`):
