@@ -78,6 +78,8 @@ def test_public_domain_pages_yield_well_formed_results(
 # Pages the projection detector gets exactly right, and pages it is known to get wrong (#3).
 CORRECT_PAGES = [
     "nature_boy_4",
+    "public_001",
+    "moon-mullings-003-01",
     "western_fighters_8",
     "public_004",
     "public_005",
@@ -92,13 +94,11 @@ CORRECT_PAGES = [
 ]
 KNOWN_FAILURES = {
     "western_fighters_6": "stained paper hides the page background; captions fill the gutters",
-    "public_001": "thin frames on newsprint: only 4 of 7 panels are separated",
     "public_002": "L-shaped panel and bleeding art leave one page-sized panel",
     "public_003": "slanted gutters and touching art leave one page-sized panel",
     "midnight-mistery-004-07": "two bottom-row panels split by a narrow gutter stay merged",
     "midnight-mistery-004-08": "last panel split in two by large lettering and its caption strip",
     "midnight-mistery-004-14": "caption boxes at the top of panels are split off as extra panels",
-    "moon-mullings-003-01": "title banner counted as a panel; the lower tiers merge",
     "moon-mullings-003-03": "two open-framed bottom panels with no gutter stay merged",
     "moon-mullings-003-09": "slanted gutter between the two top panels leaves them merged",
     "moon-mullings-003-16": "open frames and overlapping balloons leave no clean gutter",
@@ -128,8 +128,9 @@ def test_every_fixture_page_is_accounted_for() -> None:
 
 def test_western_fighters_8_rtl_reads_bottom_right_before_bottom_left() -> None:
     result = analyze_file("western_fighters_8.jpg", ReadingDirection.RTL)
-    top, first_bottom, second_bottom = result.panels
-    assert abs(top.bbox.y - 268) < 10  # the title lettering above the frame is not a panel
+    title, top, first_bottom, second_bottom = result.panels
+    assert title.bbox.y < 100  # the title lettering is the first panel
+    assert abs(top.bbox.y - 268) < 10
     assert first_bottom.bbox.x > second_bottom.bbox.x
 
 

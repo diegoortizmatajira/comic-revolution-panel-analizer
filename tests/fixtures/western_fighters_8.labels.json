@@ -8,8 +8,14 @@
     "captions",
     "circular-inset"
   ],
-  "notes": "Title lettering is not a panel; the caption strip at the bottom of the big panel is inside its frame. The bottom-right panel is a square frame holding a circular inset.",
+  "notes": "The title lettering is the first panel; the caption strip at the bottom of the big panel is inside its frame. The bottom-right panel is a square frame holding a circular inset.",
   "panels": [
+    {
+      "x": 0.02358974358974359,
+      "y": 0.030064423765211165,
+      "width": 0.9558974358974359,
+      "height": 0.16177523264137436
+    },
     {
       "x": 0.02564102564102564,
       "y": 0.19183965640658554,

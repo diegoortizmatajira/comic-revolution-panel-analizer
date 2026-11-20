@@ -8,8 +8,14 @@
     "title-banner",
     "grid"
   ],
-  "notes": "Four tiers of 2, 3, 3 and 1 panels. The title banner is not a panel.",
+  "notes": "Four tiers of 2, 3, 3 and 1 panels. The title banner is the first panel.",
   "panels": [
+    {
+      "x": 0.022105263157894735,
+      "y": 0.016487455197132617,
+      "width": 0.9421052631578948,
+      "height": 0.09462365591397849
+    },
     {
       "x": 0.02526315789473684,
       "y": 0.1111111111111111,

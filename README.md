@@ -132,9 +132,10 @@ a reader can fall back to showing the page. A single detected panel is returned 
 `ml` and `hybrid` detectors (see below). With `hybrid`, `method` is the one that answered that page.
 `projection` (version 3) also follows a slightly slanted gutter when no straight row or column is
 clean, and uses long straight frame lines to cut where there is no gutter at all and to set off
-title lettering. Caption strips and balloons that sit between panels are shared between the panel
+title banners, which are returned as a first panel. Caption strips and balloons that sit between panels are shared between the panel
 above and the one below instead of being lost. Known limitations: panels with no gutter between them (art that bleeds into the next
-panel, open frames), title banners and caption strips on pages whose frames are too broken to find,
+panel, open frames), title banners and caption strips on pages whose frames are too broken to find (the ML detector
+never returns titles),
 borderless panels on unevenly toned paper, and dense pages where balloons cross
 gutters. Those pages return fewer, larger panels, or extra ones, and a warning when only one is
 found. See `docs/evaluation.md` for per-page numbers.

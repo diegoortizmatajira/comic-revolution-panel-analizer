@@ -8,8 +8,14 @@
     "title-banner",
     "grid"
   ],
-  "notes": "Black-and-white newsprint page. The title banner and the printed credit line are not panels. Three rows: two, three and two panels.",
+  "notes": "Black-and-white newsprint page. The title banner is the first panel; the printed credit line is not a panel. Three rows: two, three and two panels.",
   "panels": [
+    {
+      "x": 0.03487179487179487,
+      "y": 0.021341463414634148,
+      "width": 0.9394871794871795,
+      "height": 0.10289634146341463
+    },
     {
       "x": 0.027692307692307693,
       "y": 0.12423780487804878,

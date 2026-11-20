@@ -28,8 +28,10 @@
   region is cut at a frame line only if the cut pays off, meaning it sets off a region with
   at most one frame side (title lettering, a caption strip) or lets a part split further. Such a
   strip is not thrown away: balloons and captions between panels are shared at 40% of the
-  strip's height between the panel above and the one below, and only large lettering with no
-  panel above it is dropped;
+  strip's height between the panel above and the one below. A large strip with no panel above
+  it (a title banner) is returned as the first panel: lettering and a panel without a frame look
+  the same to the detector, and dropping a real panel (samples/002's bleed art) costs more than
+  showing a title. Labels for title pages include the banner for the same reason;
   otherwise lines inside artwork would cut real panels (a plain long-line cut broke
   `western_fighters_8`). This fixed `nature_boy_4`. Still failing: `western_fighters_6` (stained
   paper makes the background estimate useless, so almost the whole page counts as content) and

@@ -80,8 +80,11 @@ A labelled page is an image plus a sibling `<name>.labels.json`:
 
 - `panels` are boxes **normalized to the image** (0-1, origin top-left) **in reading order** for
   `reading_direction` (`ltr` or `rtl`).
-- A panel is its **frame**. Title lettering, page numbers and captions outside the frame are not
-  panels; a caption box inside the frame is part of it. Where a caption straddles a frame line,
+- A panel is its **frame**. Page numbers, credit lines and captions outside the frame are not
+  panels; a caption box inside the frame is part of it. A **title banner** (large lettering above
+  the first frame) is labelled as the first panel and tagged `title-banner`: the detector cannot
+  tell lettering from a panel that has no frame, and losing a panel costs more than showing a
+  title. Where a caption straddles a frame line,
   use the frame line and say so in `notes`. Labels are good to a few pixels, which IoU 0.5
   absorbs.
 - Spreads: label every panel of both pages, in reading order across the whole spread.

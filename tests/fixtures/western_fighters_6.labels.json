@@ -7,8 +7,14 @@
     "title-banner",
     "captions-in-gutter"
   ],
-  "notes": "Title lettering is not a panel. Caption text sits between the top panel and the bottom row, so no clean horizontal gutter exists.",
+  "notes": "The title lettering is the first panel. Caption text sits between the top panel and the bottom row, so no clean horizontal gutter exists.",
   "panels": [
+    {
+      "x": 0.019487179487179488,
+      "y": 0.019955654101995565,
+      "width": 0.9569230769230769,
+      "height": 0.18920916481892092
+    },
     {
       "x": 0.043076923076923075,
       "y": 0.20916481892091648,

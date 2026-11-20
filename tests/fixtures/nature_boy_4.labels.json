@@ -7,8 +7,14 @@
     "title-banner",
     "narrow-gutter"
   ],
-  "notes": "Title banner above the frame is not a panel. Caption box of the bottom-right panel overlaps the lower edge of the big panel; its top is taken at the frame line.",
+  "notes": "The title banner above the frame is the first panel. Caption box of the bottom-right panel overlaps the lower edge of the big panel; its top is taken at the frame line.",
   "panels": [
+    {
+      "x": 0.025670945157526253,
+      "y": 0.014657980456026058,
+      "width": 0.9533255542590432,
+      "height": 0.20521172638436483
+    },
     {
       "x": 0.03500583430571762,
       "y": 0.21986970684039087,

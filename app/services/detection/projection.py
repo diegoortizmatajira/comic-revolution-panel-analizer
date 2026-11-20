@@ -116,14 +116,15 @@ class ProjectionPanelDetector:
     def _attach_strips(
         kept: list[_Region], strips: list[_Region], tol: float, banner_area: float
     ) -> list[_Region]:
-        """Hand each text-only strip to its neighbours, unless it is title lettering.
+        """Hand each text-only strip to its neighbours; a large one with nothing above is a panel.
 
         A strip between two panels (balloons, captions, a caption box crossing a frame) belongs
         to one of them, and which is not knowable from the pixels alone, so it is shared at 40%
         of its height: the panel above grows down to that line, the panel below grows up
         to it (balloons hang from the panel below more often than captions rise). A strip with
-        no panel above it is a caption box at the top of the panel below, or, if large, title
-        lettering, which is dropped.
+        no panel above it is a caption box at the top of the panel below or, if large, a title
+        banner. Banners are returned as a first panel rather than discarded: the detector cannot
+        tell lettering from a panel without a frame, and losing a panel costs more than a title.
         """
         result = list(kept)
         for sy0, sy1, sx0, sx1 in strips:
@@ -133,6 +134,7 @@ class ProjectionPanelDetector:
                 if y1 <= sy0 + tol and min(x1, sx1) > max(x0, sx0)
             ]
             if not above and (sy1 - sy0) * (sx1 - sx0) >= banner_area:
+                result.append((sy0, sy1, sx0, sx1))
                 continue
             middle = sy0 + (sy1 - sy0) * 2 // 5 if above else sy0
             for i, (y0, y1, x0, x1) in enumerate(result):

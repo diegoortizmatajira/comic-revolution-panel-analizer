@@ -149,10 +149,13 @@ def banner_page() -> np.ndarray:
     return page
 
 
-def test_title_lettering_above_a_frame_line_is_not_a_panel() -> None:
-    found = boxes(banner_page())
-    assert found, "the framed panels are still found"
-    assert all(y >= 225 for _, y, _, _ in found)
+def test_title_lettering_above_a_frame_line_is_returned_as_a_first_panel() -> None:
+    title, *rest = sorted(boxes(banner_page()), key=lambda box: box[1])
+    assert rest, "the framed panels are still found"
+    _, title_top, _, title_height = title
+    assert title_top < 100  # the lettering band
+    assert title_top + title_height <= 240  # ...ends at the frame line
+    assert all(y >= 225 for _, y, _, _ in rest)
 
 
 def test_a_strip_between_two_panels_is_shared_between_them() -> None:
@@ -163,13 +166,13 @@ def test_a_strip_between_two_panels_is_shared_between_them() -> None:
     assert below == (140, 300, 0, 100)
 
 
-def test_a_small_strip_at_the_top_goes_to_the_panel_below_but_a_banner_is_dropped() -> None:
+def test_a_small_strip_at_the_top_goes_to_the_panel_below_but_a_banner_is_its_own_panel() -> None:
     panel = [(200, 300, 0, 100)]
     small, banner = (150, 200, 0, 100), (0, 200, 0, 100)
     assert ProjectionPanelDetector._attach_strips(panel, [small], 10, 20_000) == [
         (150, 300, 0, 100)
     ]
-    assert ProjectionPanelDetector._attach_strips(panel, [banner], 10, 20_000) == panel
+    assert ProjectionPanelDetector._attach_strips(panel, [banner], 10, 20_000) == [*panel, banner]
 
 
 def test_full_bleed_art_touching_the_next_row_is_a_panel_not_a_banner() -> None:
