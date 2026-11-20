@@ -76,7 +76,7 @@ def test_public_domain_pages_yield_well_formed_results(
     assert_well_formed(analyze_file(name, direction))
 
 
-# Pages the projection detector gets exactly right, and pages it is known to get wrong (#3).
+# Pages the projection detector gets exactly right, and pages it is known to get wrong (#11).
 CORRECT_PAGES = [
     "western_fighters_6",
     "nature_boy_4",
@@ -96,12 +96,17 @@ CORRECT_PAGES = [
 ]
 KNOWN_FAILURES = {
     "public_002": "L-shaped panel and bleeding art leave one page-sized panel",
-    "public_003": "slanted gutters and touching art leave one page-sized panel",
-    "midnight-mistery-004-07": "two bottom-row panels split by a narrow gutter stay merged",
-    "midnight-mistery-004-08": "last panel split in two by large lettering and its caption strip",
+    "public_003": "gutters are crossed by captions and art (12-17% of any cut path is ink); "
+    "hybrid is fine",
+    "midnight-mistery-004-07": "narrow gutter holds 22% ink, above the cut threshold; a valley cut "
+    "finds it but then white balloons read as gutters and split other panels",
+    "midnight-mistery-004-08": "last panel split in two by large lettering and its caption strip; "
+    "white balloons and caption areas read as gutters",
     "midnight-mistery-004-14": "caption boxes at the top of panels are split off as extra panels",
-    "moon-mullings-003-03": "two open-framed bottom panels with no gutter stay merged",
-    "moon-mullings-003-09": "slanted gutter between the two top panels leaves them merged",
+    "moon-mullings-003-03": "two open-framed bottom panels with no gutter stay merged; a frame "
+    "line between panels cannot be told from a line inside one panel",
+    "moon-mullings-003-09": "the two top panels touch through art (27% of the path between them "
+    "is ink)",
     "moon-mullings-003-16": "open frames and overlapping balloons leave no clean gutter",
 }
 
@@ -114,7 +119,7 @@ def test_page_matches_its_labels(name: str) -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        pytest.param(name, marks=pytest.mark.xfail(strict=True, reason=f"{reason} (#3)"))
+        pytest.param(name, marks=pytest.mark.xfail(strict=True, reason=f"{reason} (#11)"))
         for name, reason in KNOWN_FAILURES.items()
     ],
 )
