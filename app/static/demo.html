@@ -34,6 +34,16 @@
   .err { color:#d33; } .warn { color:#b7791f; }
   pre { max-height:260px; overflow:auto; font-size:12px; margin:8px 0 0; }
   summary { cursor:pointer; margin-top:12px; }
+  .opt { margin-top:10px; font-size:13px; }
+  .opt .name { display:flex; justify-content:space-between; gap:8px; font-weight:600; }
+  .opt .name span { font-weight:400; opacity:.65; }
+  .opt.changed .name b { color:var(--accent); }
+  .opt .ctl { display:flex; gap:8px; align-items:center; }
+  .opt input[type=range] { flex:1; min-width:0; }
+  .opt input[type=number] { width:84px; padding:4px; border-radius:6px; border:1px solid var(--line);
+    background:var(--bg); color:var(--fg); }
+  .opt small { display:block; opacity:.6; font-size:12px; line-height:1.3; margin-top:2px; }
+  button.secondary { background:transparent; color:var(--fg); border:1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -54,6 +64,10 @@
       <label><input id="showPath" type="checkbox" checked> reading path</label>
       <label><input id="showConf" type="checkbox" checked> confidence</label>
     </div>
+    <details id="optBox"><summary>Processing options</summary>
+      <div id="opts"><small>Enter an API key to load the options.</small></div>
+      <button id="optReset" type="button" class="secondary">Reset to server defaults</button>
+    </details>
     <button id="run" disabled>Analyze</button>
     <div id="status"></div>
     <details><summary>Raw JSON</summary><pre id="json"></pre></details>
@@ -66,6 +80,95 @@ const canvas = $('canvas'), ctx = canvas.getContext('2d');
 let blob = null, img = null, result = null;
 
 try { $('key').value = localStorage.getItem('panelsKey') || ''; } catch {}
+
+// Processing options: the controls come from GET /v1/panels/options (defaults, ranges, help).
+// Only values that differ from the server default are sent with a request.
+let optSpecs = {};
+const optInputs = {};
+const sameValue = (a, b) => (typeof a === 'number' ? Math.abs(a - b) < 1e-9 : a === b);
+const shown = (v) => (typeof v === 'number' && !Number.isInteger(v) ? String(+v.toPrecision(4)) : String(v));
+
+function el(tag, props = {}, children = []) {
+  const node = Object.assign(document.createElement(tag), props);
+  node.append(...children);
+  return node;
+}
+
+function optionValue(name) {
+  const input = optInputs[name], spec = optSpecs[name];
+  if (spec.type === 'boolean') return input.checked;
+  if (spec.type === 'string') return input.value;
+  return Number(input.value);
+}
+
+function refreshChanged() {
+  for (const name of Object.keys(optInputs)) {
+    optInputs[name].closest('.opt').classList.toggle('changed', !sameValue(optionValue(name), optSpecs[name].default));
+  }
+}
+
+function buildControl(name, spec) {
+  if (spec.type === 'boolean') return el('input', { type: 'checkbox', checked: spec.default });
+  if (spec.enum) {
+    const select = el('select', {}, spec.enum.map(v => el('option', { value: v, textContent: v })));
+    select.value = spec.default;
+    return select;
+  }
+  const integer = spec.type === 'integer';
+  const lo = spec.minimum ?? 0, hi = spec.maximum ?? 1;
+  const step = integer ? 1 : 10 ** Math.floor(Math.log10((hi - lo) / 200));
+  const min = spec.minimum ?? step;  // a lower bound that is excluded starts one step above it
+  const number = el('input', { type: 'number', min, max: hi, step: integer ? 1 : 'any', value: spec.default });
+  const range = el('input', { type: 'range', min, max: hi, step, value: spec.default });
+  range.oninput = () => { number.value = shown(Number(range.value)); refreshChanged(); };
+  number.oninput = () => { range.value = number.value; refreshChanged(); };
+  number.range = range;  // so a reset moves both
+  return number;
+}
+
+function renderOptions() {
+  const box = $('opts');
+  box.replaceChildren();
+  for (const k of Object.keys(optInputs)) delete optInputs[k];
+  for (const [name, spec] of Object.entries(optSpecs)) {
+    if (name === 'reading_direction') continue;  // has its own control above
+    const control = buildControl(name, spec);
+    optInputs[name] = control;
+    const ctl = el('div', { className: 'ctl' }, control.range ? [control.range, control] : [control]);
+    control.addEventListener('change', refreshChanged);
+    box.append(el('div', { className: 'opt' }, [
+      el('div', { className: 'name' }, [el('b', { textContent: name }), el('span', { textContent: 'default ' + shown(spec.default) })]),
+      ctl,
+      el('small', { textContent: spec.description }),
+    ]));
+  }
+  $('dir').value = optSpecs.reading_direction.default;
+}
+
+function resetOptions() {
+  for (const [name, input] of Object.entries(optInputs)) {
+    const d = optSpecs[name].default;
+    if (typeof d === 'boolean') input.checked = d; else input.value = d;
+    if (input.range) input.range.value = d;
+  }
+  $('dir').value = optSpecs.reading_direction.default;
+  refreshChanged();
+}
+
+async function loadOptions() {
+  const key = $('key').value.trim();
+  if (!key) return;
+  try {
+    const res = await fetch('/v1/panels/options', { headers: { 'X-API-Key': key } });
+    if (!res.ok) { $('opts').textContent = `Could not load the options (${res.status}).`; return; }
+    optSpecs = (await res.json()).options;
+    renderOptions();
+  } catch (e) { $('opts').textContent = 'Could not load the options: ' + e.message; }
+}
+
+function changedOptions() {
+  return Object.keys(optInputs).filter(n => !sameValue(optionValue(n), optSpecs[n].default));
+}
 
 function setStatus(text, cls = '') { const s = $('status'); s.textContent = text; s.className = cls; }
 
@@ -113,6 +216,8 @@ async function run() {
   const form = new FormData();
   form.append('file', blob, blob.name || 'page');
   form.append('reading_direction', $('dir').value);
+  const changed = changedOptions();
+  for (const name of changed) form.append(name, optionValue(name));
   $('run').disabled = true; setStatus('Analyzing…');
   try {
     const res = await fetch('/v1/panels/analyze/upload', { method: 'POST', headers: { 'X-API-Key': key }, body: form });
@@ -120,7 +225,7 @@ async function run() {
     $('json').textContent = JSON.stringify(body, null, 2);
     if (!res.ok) { result = null; draw(); setStatus(`${res.status} ${body.code}: ${body.message}`, 'err'); return; }
     result = body; draw();
-    const lines = [`${body.panels.length} panels · sequence confidence ${body.sequence_confidence.toFixed(2)} · ${body.version}` + (body.whole_page_fallback ? ' · whole-page fallback' : '')];
+    const lines = [`${body.panels.length} panels · sequence confidence ${body.sequence_confidence.toFixed(2)} · ${body.version}` + (body.whole_page_fallback ? ' · whole-page fallback' : '') + (changed.length ? ` · overrides: ${changed.join(', ')}` : '')];
     setStatus(lines.concat(body.warnings.map(w => '⚠ ' + w)).join('\n'), body.warnings.length ? 'warn' : '');
   } catch (e) { setStatus('Request failed: ' + e.message, 'err'); }
   finally { $('run').disabled = false; }
@@ -148,6 +253,9 @@ $('sample').onchange = async (e) => {
   loadBlob(b);
 };
 loadSamples();
+loadOptions();
+$('key').onchange = loadOptions;
+$('optReset').onclick = () => { if (Object.keys(optSpecs).length) resetOptions(); };
 
 $('run').onclick = run;
 $('showPath').onchange = $('showConf').onchange = draw;
