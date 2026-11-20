@@ -43,7 +43,7 @@ only: it was not committed or distributed**. "Pages exactly right" is the harnes
 |---|---|---|---|---|
 | `projection` | 15 of 23 | 0.90 | 0.75 | 8 of 11 |
 | `ml` | 16 of 23 | 0.96 | 0.79 | 7 of 11 |
-| `hybrid` | 19 of 23 | 0.95 | 0.85 | 8 of 11 |
+| `hybrid` | 19 of 23 | 0.95 | 0.88 | 8 of 11 |
 
 Re-measured on 2026-11-20 with `projection@5` and the same weights. The first measurement
 (`projection` 11 of 23, `ml` 19 of 23, `hybrid` 18 of 23) predates the projection work on slanted
@@ -74,8 +74,27 @@ panel, so it does not count: the model never returns titles and would only drop 
 On the original measurement these rules flagged 9 of the 12 pages `projection` got wrong and none of the 11 it
 gets right; the model's answer replaces `projection`'s when it finds at least one panel.
 
-The three thresholds (3 panels, 5:1, 8% tolerance) were chosen on this small corpus and are
-untuned beyond it. Revisit them when the corpus grows.
+**Agreement (policy version 3).** The model now runs on every page, and when `projection` looks
+plausible but the model finds the **same number of panels** (at least 3) and each `projection` box
+overlaps its own, distinct model box by **IoU 0.6 or more**, the model's boxes are used. The
+detectors agree on the layout, and the model's boxes sit on the frames, which `projection` loses
+where white balloons, captions or halftone read as gutter (`public_001`: row 2 started 140 px below
+its frame). On the real pages where they agree, both detectors were exactly right on all 7, so
+agreement is a safe signal. Result on the 23 real pages: f1@75 0.85 to 0.88, exactly-right pages
+unchanged at 19; four pages gain (`public_001` 4 to 8 of 8 panels at IoU 0.75,
+`midnight-mistery-004-10` 6 to 7, `moon-mullings-003-05` 2 to 4) and `public_005` falls from 6 to 3
+at IoU 0.75, because the model's boxes include the captions that its frame-tight labels exclude.
+It can be switched off per request with `hybrid_agree_iou=1`.
+
+When the two disagree and `projection` looks plausible, `projection` still wins, and that is a
+coin flip: on the 16 real pages where they disagree each is exactly right on 8 and 9. A tie-break
+(for example trusting the model when it finds more panels, which would fix the three pages
+`projection` under-segments) was left out: it rests on about three pages and was found after
+seeing the results.
+
+The thresholds (3 panels, 5:1, IoU 0.6, 8% tolerance) were chosen on this small corpus and are
+untuned beyond it. IoU 0.5 also takes the model's boxes on `moon-mullings-003-14` and loses panels
+there, and 0.7 changes nothing, so the choice is fragile. Revisit them when the corpus grows.
 
 ### Cost (this machine, 24 cores; pinning to one core gave the same figures)
 

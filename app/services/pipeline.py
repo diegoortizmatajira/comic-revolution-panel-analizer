@@ -83,7 +83,9 @@ class PipelineFactory:
         if name == "ml":
             return model
         policy = ReliabilityPolicy(
-            min_panels=options["hybrid_min_panels"], max_aspect=options["hybrid_max_aspect"]
+            min_panels=options["hybrid_min_panels"],
+            max_aspect=options["hybrid_max_aspect"],
+            agree_iou=options["hybrid_agree_iou"],
         )
         return HybridPanelDetector(projection, model, policy)
 

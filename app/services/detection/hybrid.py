@@ -1,4 +1,4 @@
-"""Hybrid detector: a cheap primary detector, with an ML detector as a fallback."""
+"""Hybrid detector: a primary detector, with an ML detector as fallback and as a second opinion."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from app.domain.models import DetectedPanel, Detection
     from app.domain.ports import PanelDetector
 
-VERSION = "2"  # bump when the policy or the selection rule changes (2: a title panel is exempt)
+VERSION = "3"  # bump when the policy or selection rule changes (3: agreement; 2: title exempt)
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,12 +28,16 @@ class ReliabilityPolicy:
       that lies wholly above every other panel: that is the title banner the primary detector
       returns on purpose as a first panel, and the ML model would only drop it.
 
-    They are deliberately conservative: pages the primary gets right must not be sent to the
-    fallback, so hybrid never does worse than the primary on them.
+    They are deliberately conservative. A third rule is about boxes, not about trust: when the
+    primary result is plausible and the model finds the same number of panels (at least
+    ``min_panels``) and each of the primary's panels overlaps its own model box by at least
+    ``agree_iou``, the two agree on the layout and the model's boxes are used. They sit on the
+    frames more tightly, which projection loses where white balloons or captions read as gutter.
     """
 
     min_panels: int = 3
     max_aspect: float = 5.0
+    agree_iou: float = 0.6
 
     def distrusts(self, primary: Detection) -> bool:
         panels = primary.panels
@@ -41,9 +45,27 @@ class ReliabilityPolicy:
             return True
         return any(self._is_thin(p) and not _is_title(p, panels) for p in panels)
 
+    def agrees(self, primary: Detection, other: Detection) -> bool:
+        """Same layout: equal count (enough panels) and every panel has its own overlapping box."""
+        a, b = primary.panels, other.panels
+        if len(a) != len(b) or len(a) < self.min_panels:
+            return False
+        best = [max(range(len(b)), key=lambda j: _iou(p, b[j])) for p in a]
+        return len(set(best)) == len(a) and all(
+            _iou(p, b[j]) >= self.agree_iou for p, j in zip(a, best, strict=True)
+        )
+
     def _is_thin(self, panel: DetectedPanel) -> bool:
         box = panel.bbox
         return max(box.width, box.height) >= self.max_aspect * min(box.width, box.height)
+
+
+def _iou(a: DetectedPanel, b: DetectedPanel) -> float:
+    left, top = max(a.bbox.x, b.bbox.x), max(a.bbox.y, b.bbox.y)
+    right, bottom = min(a.bbox.right, b.bbox.right), min(a.bbox.bottom, b.bbox.bottom)
+    inter = max(0, right - left) * max(0, bottom - top)
+    union = a.bbox.width * a.bbox.height + b.bbox.width * b.bbox.height - inter
+    return inter / union if union else 0.0
 
 
 def _is_title(panel: DetectedPanel, panels: tuple[DetectedPanel, ...]) -> bool:
@@ -71,8 +93,8 @@ class HybridPanelDetector:
 
     def detect(self, page: NDArray[np.uint8]) -> Detection:
         first = self._primary.detect(page)
-        if not self._policy.distrusts(first):
-            return first
         second = self._fallback.detect(page)
-        # Keep the primary answer unless the fallback actually found something.
-        return second if second.panels else first
+        if self._policy.distrusts(first):
+            # Keep the primary answer unless the fallback actually found something.
+            return second if second.panels else first
+        return second if self._policy.agrees(first, second) else first

@@ -267,7 +267,7 @@ def test_hybrid_falls_back_to_the_ml_detector_and_reports_it(
             "/v1/panels/analyze/upload", files={"file": ("p.png", merged)}, headers=HEADERS
         ).json()
     assert body["method"] == "ml"
-    assert body["version"].startswith("hybrid@2[projection@5|ml@1:")
+    assert body["version"].startswith("hybrid@3[projection@5|ml@1:")
     assert body["version"].endswith("+xycut@4")
     assert [p["order"] for p in body["panels"]] == [1, 2, 3, 4]
     assert abs(body["panels"][0]["bbox"]["x"] - 40) <= 20

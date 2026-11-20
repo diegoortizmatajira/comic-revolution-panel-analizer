@@ -81,6 +81,15 @@ HybridMaxAspect = Annotated[
         "this many times its short side (a caption strip).",
     ),
 ]
+HybridAgreeIou = Annotated[
+    float,
+    Field(
+        ge=0.3,
+        le=1,
+        description="hybrid: use the model's boxes when it finds the same panels as projection, "
+        "each overlapping its projection box by at least this much (1 turns this off).",
+    ),
+]
 MlConfidence = Annotated[
     float,
     Field(ge=0.01, le=0.99, description="ml, hybrid: lowest model score that counts as a panel."),
@@ -116,6 +125,7 @@ OVERRIDABLE = (
     "min_area_ratio",
     "hybrid_min_panels",
     "hybrid_max_aspect",
+    "hybrid_agree_iou",
     "ml_confidence",
     "ml_nms_iou",
     "order_gap_tolerance",

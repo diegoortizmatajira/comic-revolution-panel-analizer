@@ -82,7 +82,7 @@ curl -X POST localhost:8000/v1/panels/analyze/upload -H 'X-API-Key: change-me' \
 `GET /v1/panels/options` lists every option with this server's default, range and a description:
 `reading_direction`, `detector`, `refine_edges`, `refine_max_expand`, `claim_captions`,
 `color_tolerance`, `gutter_content_ratio`, `min_gutter_ratio`, `min_area_ratio`,
-`hybrid_min_panels`, `hybrid_max_aspect`, `ml_confidence`, `ml_nms_iou`, `order_gap_tolerance`.
+`hybrid_min_panels`, `hybrid_max_aspect`, `hybrid_agree_iou`, `ml_confidence`, `ml_nms_iou`, `order_gap_tolerance`.
 The demo page builds its "Processing options" controls from that list and sends only the values
 you changed.
 
@@ -220,9 +220,12 @@ docker run -p 8000:8000 -e PANELS_API_KEYS=k -e PANELS_DETECTOR=hybrid \
   -e PANELS_ML_MODEL=/models/panels.onnx -v "$PWD/models:/models:ro" panels-ml
 ```
 
-`hybrid` runs the classical detector first and asks the model only when that result looks wrong
-(fewer than 3 panels, or a very thin panel). The `version` field includes the model's hash, so
-results from different weights are never mixed.
+`hybrid` runs projection and the model on every page. The model's answer is used when projection
+looks wrong (fewer than 3 panels, or a very thin panel), and also when the two agree on the layout
+(same number of panels, each projection box overlapping its own model box by at least 60%, see
+`hybrid_agree_iou`), because the model's boxes then sit on the frames more tightly. When they
+disagree and projection looks plausible, projection's answer stands. The `version` field includes
+the model's hash, so results from different weights are never mixed.
 
 Errors share one shape: `{"code", "message", "details", "request_id"}` with statuses
 400, 401, 413, 415, 422, 429 (with `Retry-After`), 502 and 504.

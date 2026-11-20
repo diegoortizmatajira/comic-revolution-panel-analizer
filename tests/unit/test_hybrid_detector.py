@@ -24,12 +24,11 @@ def grid(n: int) -> list[DetectedPanel]:
     return [panel(i * 100, 0, 90, 90) for i in range(n)]
 
 
-def test_a_plausible_primary_result_is_used_without_asking_the_fallback() -> None:
+def test_a_plausible_primary_result_stands_when_the_model_finds_another_layout() -> None:
     primary, fallback = StubDetector("projection", "1", grid(4)), StubDetector("ml", "9", grid(6))
     result = HybridPanelDetector(primary, fallback).detect(PAGE)
     assert result.method == "projection"
     assert len(result.panels) == 4
-    assert fallback.calls == 0  # the model is never run for pages the primary handles
 
 
 @pytest.mark.parametrize("count", [0, 1, 2])
@@ -59,8 +58,7 @@ def test_a_thin_panel_above_all_the_others_is_a_title_and_is_trusted() -> None:
     title = [panel(0, 0, 500, 60), panel(0, 100, 90, 90), panel(100, 100, 90, 90)]  # 8:1 banner
     primary, fallback = StubDetector("projection", "1", title), StubDetector("ml", "9", grid(4))
     result = HybridPanelDetector(primary, fallback).detect(PAGE)
-    assert result.method == "projection"
-    assert fallback.calls == 0  # the model would only drop the title
+    assert result.method == "projection"  # the model would only drop the title
 
 
 def test_a_thin_panel_that_is_not_above_the_rest_is_still_distrusted() -> None:
@@ -87,7 +85,7 @@ def test_version_covers_both_detectors_so_cached_results_invalidate() -> None:
     a = HybridPanelDetector(StubDetector("projection", "1", []), StubDetector("ml", "1:abc", []))
     b = HybridPanelDetector(StubDetector("projection", "1", []), StubDetector("ml", "1:def", []))
     assert a.name == "hybrid"
-    assert a.version == "2[projection@1|ml@1:abc]"
+    assert a.version == "3[projection@1|ml@1:abc]"
     assert a.version != b.version  # new weights -> new version
 
 
@@ -95,3 +93,43 @@ def test_the_policy_is_configurable() -> None:
     lenient = ReliabilityPolicy(min_panels=1, max_aspect=100.0)
     primary, fallback = StubDetector("projection", "1", grid(1)), StubDetector("ml", "9", grid(5))
     assert HybridPanelDetector(primary, fallback, lenient).detect(PAGE).method == "projection"
+
+
+def shifted(panels: list[DetectedPanel], dy: int) -> list[DetectedPanel]:
+    return [panel(p.bbox.x, p.bbox.y + dy, p.bbox.width, p.bbox.height) for p in panels]
+
+
+def test_the_model_boxes_are_used_when_both_find_the_same_layout() -> None:
+    # The model's boxes sit 5 px lower (IoU 0.89): the same four panels, set on the frames.
+    primary = StubDetector("projection", "1", grid(4))
+    fallback = StubDetector("ml", "9", shifted(grid(4), 5))
+    result = HybridPanelDetector(primary, fallback).detect(PAGE)
+    assert result.method == "ml"
+    assert [p.bbox.y for p in result.panels] == [5, 5, 5, 5]
+
+
+def test_boxes_that_only_barely_overlap_are_not_the_same_layout() -> None:
+    primary = StubDetector("projection", "1", grid(4))
+    fallback = StubDetector("ml", "9", shifted(grid(4), 60))  # IoU 0.2
+    assert HybridPanelDetector(primary, fallback).detect(PAGE).method == "projection"
+
+
+def test_two_primary_panels_cannot_share_one_model_box() -> None:
+    twice = [panel(0, 0, 90, 90), panel(0, 0, 90, 90), panel(100, 0, 90, 90)]
+    primary = StubDetector("projection", "1", twice)
+    model = [panel(0, 0, 90, 90), panel(100, 0, 90, 90), panel(300, 0, 9, 9)]
+    fallback = StubDetector("ml", "9", model)
+    assert HybridPanelDetector(primary, fallback).detect(PAGE).method == "projection"
+
+
+def test_a_different_panel_count_is_not_the_same_layout() -> None:
+    primary = StubDetector("projection", "1", grid(4))
+    fallback = StubDetector("ml", "9", shifted(grid(5), 5))
+    assert HybridPanelDetector(primary, fallback).detect(PAGE).method == "projection"
+
+
+def test_agreement_can_be_turned_off() -> None:
+    primary = StubDetector("projection", "1", grid(4))
+    fallback = StubDetector("ml", "9", shifted(grid(4), 5))
+    off = ReliabilityPolicy(agree_iou=1.0)
+    assert HybridPanelDetector(primary, fallback, off).detect(PAGE).method == "projection"

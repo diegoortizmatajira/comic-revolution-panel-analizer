@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     min_area_ratio: opt.MinAreaRatio = 0.02
     hybrid_min_panels: opt.HybridMinPanels = 3
     hybrid_max_aspect: opt.HybridMaxAspect = 5.0
+    hybrid_agree_iou: opt.HybridAgreeIou = 0.6
     order_gap_tolerance: opt.OrderGapTolerance = 0.08
 
     # Optional ML detector (needs the `ml` extra and a model file you are allowed to use).

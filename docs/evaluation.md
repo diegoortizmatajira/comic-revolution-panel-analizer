@@ -77,10 +77,10 @@ against without it (f1@75, with the model of ADR 0002):
 |---|---|---|
 | `projection` | 0.81 to 0.93 | 0.75 to 0.76 |
 | `ml` | 0.88 to 0.97 | 0.79 to 0.80 |
-| `hybrid` | 0.93 to 0.95 | 0.85 to 0.82 |
+| `hybrid` | 0.90 to 0.95 | 0.88 to 0.84 |
 
 The `captions` rows now agree with what a reader sees. Across all real pages `hybrid` loses a little
-(0.85 to 0.82): the pages without a `caption_panels` list are still scored frame-tight, and the
+(0.88 to 0.84): the pages without a `caption_panels` list are still scored frame-tight, and the
 claimer also grows boxes on them wherever lettering touches a top edge. Exactly-right pages do not
 move (`page_acc` is 0.65, 0.65 and 0.83 on real pages, as before, for `projection`, `ml` and `hybrid`)
 except `ml`, which goes from 0.70 to 0.65 (the cause was not investigated).
@@ -172,7 +172,7 @@ Read the **real** rows. Generated pages are cleaner than scans and flatter the a
 
 On real pages `projection` gets 15 of 23 pages exactly right and `classical` none (`conf_auc` is
 undefined for `classical` because no real page is correct). With an ML model
-([ADR 0002](adr/0002-optional-ml-detector.md)), `hybrid` gets 19 of 23, `ml` alone 16. `projection`'s
+([ADR 0002](adr/0002-optional-ml-detector.md)), `hybrid` gets 19 of 23 (f1@75 0.88), `ml` alone 16. `projection`'s
 `sequence_confidence` does not separate right from wrong pages (AUC 0.50).
 
 Known weaknesses visible in the per-tag rows: pages with no gutter, double-page spreads (panels
