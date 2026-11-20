@@ -118,3 +118,16 @@ def test_tolerance_zero_keeps_the_strict_behaviour() -> None:
 def test_large_overlaps_are_still_ambiguous() -> None:
     result = ordering.order([panel(0, 0, 60, 60), panel(40, 40, 60, 60)], ReadingDirection.LTR)
     assert result.confidence == 0.5
+
+
+def test_a_title_over_the_first_panel_is_read_first_even_when_the_tops_are_close() -> None:
+    # The title box reaches down into the first panel and starts level with it: the two sit over
+    # each other, so they are not one row and the title (which ends first) comes first.
+    layout = [
+        panel(10, 50, 850, 800),  # first panel, top grown up to the lettering
+        panel(40, 50, 800, 210),  # title lettering
+        panel(30, 900, 400, 330),
+        panel(450, 860, 470, 440),
+    ]
+    result = ordering.order(layout, ReadingDirection.LTR)
+    assert positions(result.panels)[:2] == [(40, 50), (10, 50)]

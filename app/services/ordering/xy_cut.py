@@ -29,7 +29,8 @@ class XYCutOrdering:
     """
 
     name = "xycut"
-    version = "3"  # 3: unsplittable groups read as rows; 2: gap tolerance (default 8%)
+    # 4: panels over each other never share a row; 3: uncuttable groups read as rows; 2: tolerance
+    version = "4"
 
     def __init__(self, gap_tolerance: float = DEFAULT_GAP_TOLERANCE) -> None:
         self._tolerance = gap_tolerance
@@ -66,13 +67,18 @@ class XYCutOrdering:
         """Order panels that cannot be cut: tops within the tolerance count as one row.
 
         Sorting by exact top edge would put a panel first just because its top sits a few
-        pixels higher, even when it is the right-hand panel of the same row.
+        pixels higher, even when it is the right-hand panel of the same row. Two panels that
+        sit over each other (a title above the first panel) are never one row, however close
+        their tops are: only panels side by side can share a row.
         """
-        by_top = sorted(group, key=lambda p: p.bbox.y)
+        by_top = sorted(group, key=lambda p: (p.bbox.y, p.bbox.bottom))
         slack = self._tolerance * (max(p.bbox.bottom for p in group) - by_top[0].bbox.y)
         rows: list[list[DetectedPanel]] = [[by_top[0]]]
         for panel in by_top[1:]:
-            if panel.bbox.y - rows[-1][0].bbox.y <= slack:
+            same_row = panel.bbox.y - rows[-1][0].bbox.y <= slack and not any(
+                _stacked(panel, other) for other in rows[-1]
+            )
+            if same_row:
                 rows[-1].append(panel)
             else:
                 rows.append([panel])
@@ -91,6 +97,12 @@ class XYCutOrdering:
             result.extend(ordered)
             ambiguous += amb
         return result, ambiguous
+
+
+def _stacked(a: DetectedPanel, b: DetectedPanel) -> bool:
+    """True if the panels overlap horizontally by more than half of the narrower one."""
+    shared = min(a.bbox.right, b.bbox.right) - max(a.bbox.x, b.bbox.x)
+    return shared > 0.5 * min(a.bbox.width, b.bbox.width)
 
 
 def _split(

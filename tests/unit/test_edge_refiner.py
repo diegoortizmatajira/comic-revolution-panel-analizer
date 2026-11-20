@@ -153,8 +153,8 @@ def test_the_analyzer_applies_the_refiner_and_reports_it_in_the_version() -> Non
 
     assert plain.panels[0].bbox.bottom == 430
     assert refined.panels[0].bbox.bottom == 460
-    assert plain.version == "fake@7+xycut@3"
-    assert refined.version == "fake@7+edge-snap@2+xycut@3"
+    assert plain.version == "fake@7+xycut@4"
+    assert refined.version == "fake@7+edge-snap@3+xycut@4"
 
 
 def slanted_top_page() -> NDArray[np.uint8]:
@@ -185,3 +185,12 @@ def test_a_straight_top_edge_is_not_moved_by_the_slant_rule() -> None:
     ink(page, 60, 300, 540, 740)
     refined = EdgeSnapRefiner().refine(page, [panel(60, 300, 480, 440)])
     assert bounds(refined) == (60, 300, 540, 740)
+
+
+def test_does_not_grow_an_edge_that_lies_inside_a_neighbours_box() -> None:
+    page = blank()
+    for y in range(40, 700, 4):  # dense hatched lettering running down into the panel
+        ink(page, 100, y, 500, y + 3)
+    title, body = panel(100, 40, 400, 200), panel(100, 150, 400, 550)  # body top is inside title
+    refined = EdgeSnapRefiner().refine(page, [title, body])
+    assert refined[1].bbox.y == 150  # not pulled up to the title's top

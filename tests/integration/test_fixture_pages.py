@@ -14,6 +14,7 @@ from app.evaluation.labels import LabeledPage, discover
 from app.evaluation.metrics import Prediction, score_page
 from app.services.analyzer import PanelAnalyzer
 from app.services.detection.projection import ProjectionPanelDetector
+from app.services.detection.refine import EdgeSnapRefiner
 from app.services.image.decoder import DecodedImage, ImageLimits, decode_image
 from app.services.ordering.xy_cut import XYCutOrdering
 
@@ -119,6 +120,18 @@ def test_page_matches_its_labels(name: str) -> None:
 )
 def test_known_failure_page_matches_its_labels(name: str) -> None:
     assert matches_ground_truth(name)
+
+
+def test_western_fighters_6_reads_the_title_first_with_and_without_edge_snapping() -> None:
+    page = labelled("western_fighters_6")
+    for refiner in (None, EdgeSnapRefiner()):
+        result = PanelAnalyzer(ProjectionPanelDetector(), XYCutOrdering(), refiner).analyze(
+            page.image, page.direction
+        )
+        title, body, *bottom = result.panels
+        assert title.bbox.y < body.bbox.y + 100  # the title lettering, read before the big panel
+        assert title.bbox.bottom < body.bbox.bottom
+        assert body.bbox.bottom <= min(p.bbox.bottom for p in bottom)
 
 
 def test_every_fixture_page_is_accounted_for() -> None:

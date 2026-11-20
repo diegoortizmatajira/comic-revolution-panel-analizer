@@ -54,7 +54,7 @@ Response:
   ],
   "sequence_confidence": 1.0,
   "method": "projection",
-  "version": "projection@1+xycut@3",
+  "version": "projection@1+xycut@4",
   "whole_page_fallback": false,
   "warnings": []
 }
@@ -147,7 +147,8 @@ Detectors sometimes cut a panel edge through a balloon or caption. Set `PANELS_R
 to run a post-processing step after any detector: each edge that cuts through ink moves outward
 until it reaches a clean gutter. Where balloons sit in the gap between two panels with no clean
 gutter, each panel claims only the blobs that touch its own edge. It only ever grows a box, by at most 15% of the page side (`PANELS_REFINE_MAX_EXPAND`), and
-leaves an edge alone when no gutter is found in reach or a neighbouring panel is in the way.
+leaves an edge alone when no gutter is found in reach, a neighbouring panel is in the way, or the
+edge already lies inside another panel's box (a title that overlaps the first panel).
 It also follows a long slanted top or bottom frame line to its far end (within 4% of the page height),
 so a panel with a slanted edge keeps its highest or lowest corner.
 `version` then includes `edge-snap@<n>`. Score it with `python -m app.evaluation --refine-edges`.

@@ -43,7 +43,7 @@ _EDGES = ("top", "bottom", "left", "right")
 @dataclass(frozen=True, slots=True)
 class EdgeSnapRefiner:
     name: str = "edge-snap"
-    version: str = "2"  # bump when a change could alter the output
+    version: str = "3"  # bump when a change could alter the output
     max_expand_ratio: float = 0.15  # farthest an edge may move, as a fraction of the page side
     gap: int = 3  # ink-free lines that count as a gutter
     ink_ratio: float = 0.003  # fraction of a line that must be ink to count as content
@@ -210,6 +210,8 @@ class EdgeSnapRefiner:
             shares_span = (ox0 < x1 and ox1 > x0) if vertical else (oy0 < y1 and oy1 > y0)
             if not shares_span:
                 continue
+            if near < current < far:
+                return current  # the edge lies inside a neighbour's box: shared ground, no growth
             if outward < 0 and far <= current:
                 limit = max(limit, far)
             elif outward > 0 and near >= current:
