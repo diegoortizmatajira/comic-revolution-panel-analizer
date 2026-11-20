@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 
 from app.domain.models import BoundingBox, DetectedPanel, Detection
-from app.services.detection.content import content_mask
+from app.services.detection.content import content_mask, local_content_mask
 from app.services.detection.frames import FrameLines
 
 if TYPE_CHECKING:
@@ -57,9 +57,14 @@ def _bleeds(frames: _Frames, region: _Region) -> bool:
     return sum(edges) >= 3
 
 
+def _is_wide(region: _Region, page_width: int) -> bool:
+    """A piece wide enough to be a line of lettering or a caption, not a speck."""
+    return region[3] - region[2] >= 0.05 * page_width
+
+
 class ProjectionPanelDetector:
     name = "projection"
-    version = "3"
+    version = "4"
 
     def __init__(  # noqa: PLR0913
         self,
@@ -91,30 +96,57 @@ class ProjectionPanelDetector:
         self._banner_area_ratio = banner_area_ratio
 
     def detect(self, page: NDArray[np.uint8]) -> Detection:
-        height, width = page.shape[:2]
-        mask = self._content_mask(page)
-        regions: list[_Region] = []
         frames = _Frames(FrameLines.find(page))
+        mask = self._content_mask(page)
+        panels = self._detect_with(mask, frames, loose=False)
+        if len(panels) <= 1:
+            # Nothing was cut. On stained or unevenly toned paper the single page colour matches
+            # only part of the page, so try the paper colour measured around each pixel.
+            local = local_content_mask(page, self._tolerance, self._border_fraction)
+            retry = self._detect_with(local, _Frames(frames.lines), loose=True)
+            if len(retry) > len(panels):
+                panels = retry
+        return Detection(panels=tuple(panels), method=self.name)
+
+    def _detect_with(self, mask: Mask, frames: _Frames, *, loose: bool) -> list[DetectedPanel]:
+        """Panels of one pass. ``loose`` also gathers small lettering pieces into strips."""
+        height, width = mask.shape
+        regions: list[_Region] = []
         self._split(mask, (0, height, 0, width), 0, regions, frames)
 
         min_area = self._min_area_ratio * width * height
         big = [r for r in regions if (r[1] - r[0]) * (r[3] - r[2]) >= min_area]
         text = [r for r in regions if self._is_text_only(frames, r)]
         kept = [r for r in big if r not in text]
+        strips = list(text)
+        if loose:
+            # Second attempt on a page the first pass could not cut: caption lines and lettering
+            # are small wide pieces, and title lettering that gutters split into lines sits as
+            # unframed pieces above the main panel. Gather both as strips.
+            strips += [r for r in regions if r not in big and r not in text and _is_wide(r, width)]
+            if kept:
+                body = max(kept, key=lambda r: (r[1] - r[0]) * (r[3] - r[2]))
+                lettering = [r for r in kept if r[1] <= body[0] and frames.lines.sides(r) == 0]
+                kept = [r for r in kept if r not in lettering]
+                strips += lettering
         banner_area = self._banner_area_ratio * width * height
-        kept = self._attach_strips(kept, text, 0.02 * height, banner_area)
-        panels = [
+        kept = self._attach_strips(kept, strips, 0.02 * height, banner_area, loose=loose)
+        return [
             DetectedPanel(
                 bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0),
                 confidence=min(1.0, max(0.0, float(mask[y0:y1, x0:x1].mean()))),
             )
             for y0, y1, x0, x1 in kept
         ]
-        return Detection(panels=tuple(panels), method=self.name)
 
     @staticmethod
     def _attach_strips(
-        kept: list[_Region], strips: list[_Region], tol: float, banner_area: float
+        kept: list[_Region],
+        strips: list[_Region],
+        tol: float,
+        banner_area: float,
+        *,
+        loose: bool = False,
     ) -> list[_Region]:
         """Hand each text-only strip to its neighbours; a large one with nothing above is a panel.
 
@@ -125,27 +157,66 @@ class ProjectionPanelDetector:
         no panel above it is a caption box at the top of the panel below or, if large, a title
         banner. Banners are returned as a first panel rather than discarded: the detector cannot
         tell lettering from a panel without a frame, and losing a panel costs more than a title.
+
+        With ``loose`` (the second attempt on a page that could not be cut) strips are attached
+        repeatedly, since one may touch a panel only after another has joined it, and what is
+        left over with no panel above it is gathered into a single banner.
         """
         result = list(kept)
-        for sy0, sy1, sx0, sx1 in strips:
-            above = [
-                i
-                for i, (_, y1, x0, x1) in enumerate(result)
-                if y1 <= sy0 + tol and min(x1, sx1) > max(x0, sx0)
-            ]
-            if not above and (sy1 - sy0) * (sx1 - sx0) >= banner_area:
-                result.append((sy0, sy1, sx0, sx1))
-                continue
-            middle = sy0 + (sy1 - sy0) * 2 // 5 if above else sy0
-            for i, (y0, y1, x0, x1) in enumerate(result):
-                shared = min(x1, sx1) - max(x0, sx0)
-                if shared < 0.3 * (x1 - x0):
-                    continue
-                if i in above and abs(y1 - sy0) <= tol:
-                    result[i] = (y0, max(y1, middle), x0, x1)
-                elif abs(y0 - sy1) <= tol:
-                    result[i] = (min(y0, middle), y1, x0, x1)
+        if not loose:
+            for strip in strips:
+                has_panel_above = any(
+                    y1 <= strip[0] + tol and min(x1, strip[3]) > max(x0, strip[2])
+                    for _, y1, x0, x1 in result
+                )
+                if (
+                    not has_panel_above
+                    and (strip[1] - strip[0]) * (strip[3] - strip[2]) >= banner_area
+                ):
+                    result.append(strip)
+                else:
+                    ProjectionPanelDetector._attach_one(result, strip, tol)
+            return result
+        pending = sorted(strips)
+        progress = True
+        while progress:  # a strip may touch a panel only after another strip has joined it
+            progress = False
+            for strip in list(pending):
+                if ProjectionPanelDetector._attach_one(result, strip, tol):
+                    pending.remove(strip)
+                    progress = True
+        leftovers = [r for r in pending if not any(y1 <= r[0] + tol for _, y1, _, _ in result)]
+        if leftovers:
+            union = (
+                min(r[0] for r in leftovers),
+                max(r[1] for r in leftovers),
+                min(r[2] for r in leftovers),
+                max(r[3] for r in leftovers),
+            )
+            if (union[1] - union[0]) * (union[3] - union[2]) >= banner_area:
+                result.append(union)
         return result
+
+    @staticmethod
+    def _attach_one(result: list[_Region], strip: _Region, tol: float) -> bool:
+        sy0, sy1, sx0, sx1 = strip
+        above = [
+            i
+            for i, (_, y1, x0, x1) in enumerate(result)
+            if y1 <= sy0 + tol and min(x1, sx1) > max(x0, sx0)
+        ]
+        middle = sy0 + (sy1 - sy0) * 2 // 5 if above else sy0
+        attached = False
+        for i, (y0, y1, x0, x1) in enumerate(result):
+            if min(x1, sx1) - max(x0, sx0) < 0.3 * (x1 - x0):
+                continue
+            if i in above and abs(y1 - sy0) <= tol:
+                result[i] = (y0, max(y1, middle), x0, x1)
+                attached = True
+            elif abs(y0 - sy1) <= tol:
+                result[i] = (min(y0, middle), y1, x0, x1)
+                attached = True
+        return attached
 
     def _content_mask(self, page: NDArray[np.uint8]) -> Mask:
         return content_mask(page, self._tolerance, self._border_fraction)

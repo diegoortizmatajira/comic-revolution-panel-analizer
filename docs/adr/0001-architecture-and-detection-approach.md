@@ -33,11 +33,15 @@
   the same to the detector, and dropping a real panel (samples/002's bleed art) costs more than
   showing a title. Labels for title pages include the banner for the same reason;
   otherwise lines inside artwork would cut real panels (a plain long-line cut broke
-  `western_fighters_8`). This fixed `nature_boy_4`. Still failing: `western_fighters_6` (stained
-  paper makes the background estimate useless, so almost the whole page counts as content) and
-  `samples/002` (top bleed touching the next row; four of five panels found). Pages whose
-  frames are too broken for the lines to be found keep their banners and caption strips.
-  These cases are what the ML detector is for.
+  `western_fighters_8`). This fixed `nature_boy_4`, and treating art that bleeds off three
+  page borders as a panel fixed `samples/002`. Projection v4 adds a second attempt for a page
+  where nothing could be cut: the paper colour is measured around each pixel instead of once at
+  the page edge (paper reachable from the border without crossing an edge, smoothed over the
+  page), which fixed `western_fighters_6`, where stained paper made almost the whole page read as
+  content. It is only a second attempt because on pages that already work it fragments titles.
+  Pages whose frames are too broken for the lines to be found keep their banners and caption
+  strips. The remaining failures are tracked in issue 11. These cases are what the ML detector
+  is for.
 - **Reading order:** recursive XY-cut honouring `ltr`/`rtl`. `sequence_confidence`
   measures layout ambiguity only (share of panels that could not be cut cleanly);
   per-panel `confidence` measures detection quality.

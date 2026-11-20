@@ -9,6 +9,7 @@ from app.services.image.decoder import ImageLimits, decode_image
 from app.services.ordering.xy_cut import XYCutOrdering
 
 from tests.conftest import make_comic_page
+from tests.unit.test_content import stained_page
 
 detector = ProjectionPanelDetector()
 MAROON = (79, 18, 18)
@@ -185,3 +186,7 @@ def test_full_bleed_art_touching_the_next_row_is_a_panel_not_a_banner() -> None:
     page[1134:1140, 60:740] = 0
     found = boxes(page)
     assert any(y == 0 and w >= 780 for _, y, w, _ in found), found
+
+
+def test_stained_paper_page_is_cut_through_the_local_paper_colour() -> None:
+    assert len(boxes(stained_page())) == 2

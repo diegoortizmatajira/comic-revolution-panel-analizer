@@ -77,6 +77,7 @@ def test_public_domain_pages_yield_well_formed_results(
 
 # Pages the projection detector gets exactly right, and pages it is known to get wrong (#3).
 CORRECT_PAGES = [
+    "western_fighters_6",
     "nature_boy_4",
     "public_001",
     "moon-mullings-003-01",
@@ -93,7 +94,6 @@ CORRECT_PAGES = [
     "moon-mullings-003-17",
 ]
 KNOWN_FAILURES = {
-    "western_fighters_6": "stained paper hides the page background; captions fill the gutters",
     "public_002": "L-shaped panel and bleeding art leave one page-sized panel",
     "public_003": "slanted gutters and touching art leave one page-sized panel",
     "midnight-mistery-004-07": "two bottom-row panels split by a narrow gutter stay merged",
