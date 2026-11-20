@@ -8,6 +8,8 @@ from typing import Literal, Self
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core import options as opt  # noqa: TC001  (pydantic needs them at runtime)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PANELS_", env_file=".env", extra="ignore")
@@ -27,21 +29,26 @@ class Settings(BaseSettings):
     samples_dir: Path = Path("samples")  # local pages listed by the demo page
     fixtures_dir: Path = Path("tests/fixtures")  # committed test pages, also listed
 
-    detector: Literal["projection", "classical", "ml", "hybrid"] = "projection"
-
-    # Grow panel edges that cut through content (balloons, captions) out to the next gutter.
-    refine_edges: bool = False
-    # Farthest a refined edge may move, as a fraction of the page side.
-    refine_max_expand: float = Field(default=0.15, gt=0, le=0.5)
-
-    # Extend each panel's top edge over the narration and balloons that hang above its frame.
-    claim_captions: bool = False
+    # Processing defaults. Every field in this block can be overridden per request with the
+    # option of the same name (see app/core/options.py for what each one does and its range).
+    detector: opt.DetectorName = "projection"
+    reading_direction: opt.ReadingDirectionName = "ltr"
+    refine_edges: opt.RefineEdges = False
+    refine_max_expand: opt.RefineMaxExpand = 0.15
+    claim_captions: opt.ClaimCaptions = False
+    color_tolerance: opt.ColorTolerance = 40.0
+    gutter_content_ratio: opt.GutterContentRatio = 0.005
+    min_gutter_ratio: opt.MinGutterRatio = 0.0015
+    min_area_ratio: opt.MinAreaRatio = 0.02
+    hybrid_min_panels: opt.HybridMinPanels = 3
+    hybrid_max_aspect: opt.HybridMaxAspect = 5.0
+    order_gap_tolerance: opt.OrderGapTolerance = 0.08
 
     # Optional ML detector (needs the `ml` extra and a model file you are allowed to use).
     ml_model: Path | None = None
     ml_input_size: int = Field(default=640, gt=0)
-    ml_confidence: float = Field(default=0.25, ge=0, le=1)
-    ml_nms_iou: float = Field(default=0.45, ge=0, le=1)
+    ml_confidence: opt.MlConfidence = 0.25
+    ml_nms_iou: opt.MlNmsIou = 0.45
     ml_output_format: Literal["yolov8", "end2end"] = "yolov8"
     ml_panel_class: int = Field(default=0, ge=0)
 

@@ -6,7 +6,8 @@ from typing import Annotated, Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.domain.models import AnalysisResult, ReadingDirection
+from app.core import options as opt  # noqa: TC001  (pydantic needs them at runtime)
+from app.domain.models import AnalysisResult, ReadingDirection  # noqa: TC001
 
 
 class ImageSource(BaseModel):
@@ -26,9 +27,37 @@ class ImageSource(BaseModel):
 
 
 class AnalyzeOptions(BaseModel):
+    """Per-request processing options. Leave one out (or null) to use the server's default.
+
+    `GET /v1/panels/options` lists every option with its default, range and description.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    reading_direction: ReadingDirection = ReadingDirection.LTR
+    reading_direction: opt.ReadingDirectionName | None = None
+    detector: opt.DetectorName | None = None
+    refine_edges: opt.RefineEdges | None = None
+    refine_max_expand: opt.RefineMaxExpand | None = None
+    claim_captions: opt.ClaimCaptions | None = None
+    color_tolerance: opt.ColorTolerance | None = None
+    gutter_content_ratio: opt.GutterContentRatio | None = None
+    min_gutter_ratio: opt.MinGutterRatio | None = None
+    min_area_ratio: opt.MinAreaRatio | None = None
+    hybrid_min_panels: opt.HybridMinPanels | None = None
+    hybrid_max_aspect: opt.HybridMaxAspect | None = None
+    ml_confidence: opt.MlConfidence | None = None
+    ml_nms_iou: opt.MlNmsIou | None = None
+    order_gap_tolerance: opt.OrderGapTolerance | None = None
+
+    def overrides(self) -> dict[str, Any]:
+        """The options the caller actually set."""
+        return self.model_dump(exclude_none=True)
+
+
+class UploadOptions(AnalyzeOptions):
+    """The same options as form fields. Other form parts (the file) are not options, so ignored."""
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class AnalyzeRequest(BaseModel):
@@ -111,6 +140,20 @@ class AnalyzeResponse(BaseModel):
         )
 
 
+class OptionInfo(BaseModel):
+    type: str
+    default: Any
+    description: str
+    minimum: float | None = None
+    maximum: float | None = None
+    exclusive_minimum: float | None = None
+    enum: list[str] | None = None
+
+
+class OptionsResponse(BaseModel):
+    options: dict[str, OptionInfo]
+
+
 class ErrorBody(BaseModel):
     code: str
     message: str
@@ -120,3 +163,21 @@ class ErrorBody(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
+
+
+def describe_options(defaults: dict[str, Any]) -> dict[str, OptionInfo]:
+    """Every request option with its default, range and description, from the model's schema."""
+    properties = AnalyzeOptions.model_json_schema()["properties"]
+    described: dict[str, OptionInfo] = {}
+    for name, prop in properties.items():
+        spec = next((p for p in prop.get("anyOf", [prop]) if p.get("type") != "null"), prop)
+        described[name] = OptionInfo(
+            type=spec["type"],
+            default=defaults[name],
+            description=spec.get("description", ""),
+            minimum=spec.get("minimum"),
+            maximum=spec.get("maximum"),
+            exclusive_minimum=spec.get("exclusiveMinimum"),
+            enum=spec.get("enum"),
+        )
+    return described

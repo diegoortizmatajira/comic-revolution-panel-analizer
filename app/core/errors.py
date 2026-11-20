@@ -53,3 +53,8 @@ class UnauthorizedError(AppError):
 class RateLimitExceededError(AppError):
     code = "rate_limit_exceeded"
     status_code = 429
+
+
+class InvalidOptionError(AppError):
+    code = "invalid_option"
+    status_code = 422

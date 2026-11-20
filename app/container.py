@@ -5,24 +5,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.services.analyzer import PanelAnalyzer
-from app.services.detection.captions import CaptionClaimer, ChainedRefiner
-from app.services.detection.refine import EdgeSnapRefiner
-from app.services.detection.registry import MlConfig, build_detector
+from app.services.detection.registry import MlConfig
 from app.services.image.decoder import ImageLimits
 from app.services.image.sources import UrlImageFetcher
-from app.services.ordering.xy_cut import XYCutOrdering
+from app.services.pipeline import PipelineFactory
 from app.services.security import SlidingWindowRateLimiter, StaticApiKeyStore
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.domain.ports import ApiKeyStore, ImageFetcher, PanelRefiner, RateLimiter
+    from app.domain.ports import ApiKeyStore, ImageFetcher, RateLimiter
+    from app.services.analyzer import PanelAnalyzer
 
 
 @dataclass(frozen=True, slots=True)
 class Container:
     settings: Settings
-    analyzer: PanelAnalyzer
+    analyzer: PanelAnalyzer  # the server defaults; a request with overrides gets pipeline.analyzer
+    pipeline: PipelineFactory
     fetcher: ImageFetcher
     limits: ImageLimits
     api_keys: ApiKeyStore
@@ -42,25 +41,12 @@ def ml_config(settings: Settings) -> MlConfig | None:
     )
 
 
-def build_refiner(settings: Settings) -> PanelRefiner | None:
-    refiners: list[PanelRefiner] = []
-    if settings.refine_edges:
-        refiners.append(EdgeSnapRefiner(max_expand_ratio=settings.refine_max_expand))
-    if settings.claim_captions:
-        refiners.append(CaptionClaimer())
-    if len(refiners) > 1:
-        return ChainedRefiner(*refiners)
-    return refiners[0] if refiners else None
-
-
 def build_container(settings: Settings) -> Container:
+    pipeline = PipelineFactory(settings, ml_config(settings))
     return Container(
         settings=settings,
-        analyzer=PanelAnalyzer(
-            build_detector(settings.detector, ml_config(settings)),
-            XYCutOrdering(),
-            build_refiner(settings),
-        ),
+        analyzer=pipeline.analyzer(),
+        pipeline=pipeline,
         fetcher=UrlImageFetcher(
             max_bytes=settings.max_image_bytes,
             timeout_seconds=settings.url_fetch_timeout_seconds,

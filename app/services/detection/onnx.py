@@ -12,6 +12,7 @@ The model must take a square NCHW float32 RGB input in 0-1 and produce either
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import threading
 from dataclasses import dataclass
@@ -124,6 +125,21 @@ def nms(boxes: NDArray[np.float32], scores: NDArray[np.float32], iou_threshold: 
     return keep
 
 
+class _SessionHolder:
+    """The inference session, loaded on first use and shared by detectors made from one another."""
+
+    def __init__(self) -> None:
+        self._session: InferenceSession | None = None
+        self._lock = threading.Lock()
+
+    def get(self, load: Callable[[], InferenceSession]) -> InferenceSession:
+        if self._session is None:
+            with self._lock:
+                if self._session is None:  # weights are loaded on first use, once
+                    self._session = load()
+        return self._session
+
+
 class OnnxPanelDetector:
     name = "ml"
 
@@ -148,8 +164,7 @@ class OnnxPanelDetector:
         self._format = output_format
         self._panel_class = panel_class
         self._factory = session_factory
-        self._session: InferenceSession | None = None
-        self._lock = threading.Lock()
+        self._holder = _SessionHolder()
         # The weights are part of what produced a result, so they are part of the version.
         self.version = f"{VERSION}:{file_digest(model_path)[:12]}"
 
@@ -166,12 +181,15 @@ class OnnxPanelDetector:
                 panels.append(DetectedPanel(bbox=box, confidence=float(np.clip(score, 0.0, 1.0))))
         return Detection(panels=tuple(panels), method=self.name)
 
+    def with_thresholds(self, confidence: float, nms_iou: float) -> OnnxPanelDetector:
+        """A detector with other score thresholds that shares this one's loaded weights."""
+        clone = copy.copy(self)
+        clone._confidence = confidence
+        clone._nms_iou = nms_iou
+        return clone
+
     def _load(self) -> InferenceSession:
-        if self._session is None:
-            with self._lock:
-                if self._session is None:  # weights are loaded on first use, once
-                    self._session = self._factory(self._path)
-        return self._session
+        return self._holder.get(lambda: self._factory(self._path))
 
     def _decode(self, raw: NDArray[Any]) -> tuple[NDArray[np.float32], NDArray[np.float32]]:
         out = raw[0] if raw.ndim == 3 else raw

@@ -22,10 +22,12 @@ class PanelAnalyzer:
         detector: PanelDetector,
         ordering: ReadingOrderStrategy,
         refiner: PanelRefiner | None = None,
+        variant: str = "",
     ) -> None:
         self._detector = detector
         self._ordering = ordering
         self._refiner = refiner
+        self._variant = variant
 
     def analyze(self, image: DecodedImage, direction: ReadingDirection) -> AnalysisResult:
         detection = self._detector.detect(image.pixels)
@@ -85,4 +87,6 @@ class PanelAnalyzer:
         if self._refiner is not None:
             parts.append(f"{self._refiner.name}@{self._refiner.version}")
         parts.append(f"{self._ordering.name}@{self._ordering.version}")
+        if self._variant:
+            parts.append(f"opts@{self._variant}")
         return "+".join(parts)

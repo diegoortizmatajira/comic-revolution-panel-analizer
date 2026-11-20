@@ -233,3 +233,20 @@ def test_missing_onnxruntime_has_an_actionable_message(
 def test_factory_type_is_a_plain_callable() -> None:
     factory: Callable[[Path], Any] = _default_session_factory
     assert callable(factory)
+
+
+def test_other_thresholds_share_the_loaded_weights(tmp_path: Path) -> None:
+    calls: list[Path] = []
+
+    def factory(path: Path) -> FakeSession:
+        calls.append(path)
+        return FakeSession(yolo((32, 24, 32, 16, 0.4)))
+
+    strict = OnnxPanelDetector(
+        model_file(tmp_path), input_size=SIZE, confidence=0.5, session_factory=factory
+    )
+    loose = strict.with_thresholds(0.3, 0.45)
+    assert strict.detect(PAGE).panels == ()  # score 0.4 is under 0.5
+    assert len(loose.detect(PAGE).panels) == 1  # ...and over 0.3
+    assert len(calls) == 1  # one session, loaded by whichever ran first
+    assert loose.version == strict.version
