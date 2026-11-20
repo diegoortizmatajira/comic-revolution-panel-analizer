@@ -13,6 +13,11 @@ shared with a neighbour is left for the neighbour to claim from its own side). C
 right up to the page border grows to the border. That keeps noisy scans
 and gutter-less layouts safe: the refiner can only ever make a box bigger, and only up to a
 clean gutter.
+
+Panels with slanted frames are the other case: their bounding box should reach the highest (or
+lowest, leftmost, rightmost) corner, but a detector often places the edge part-way along the
+slant. A long slanted frame line that crosses a box edge is therefore followed to its far end
+(see ``slant_reach_ratio``), which puts the missing corner back inside the box.
 """
 
 from __future__ import annotations
@@ -38,7 +43,7 @@ _EDGES = ("top", "bottom", "left", "right")
 @dataclass(frozen=True, slots=True)
 class EdgeSnapRefiner:
     name: str = "edge-snap"
-    version: str = "1"  # bump when a change could alter the output
+    version: str = "2"  # bump when a change could alter the output
     max_expand_ratio: float = 0.15  # farthest an edge may move, as a fraction of the page side
     gap: int = 3  # ink-free lines that count as a gutter
     ink_ratio: float = 0.003  # fraction of a line that must be ink to count as content
@@ -47,6 +52,10 @@ class EdgeSnapRefiner:
     passes: int = 2  # a grown edge changes the span the perpendicular edges look at
     window: int = 31  # size of the neighbourhood an outline must stand out from
     contrast: float = 45.0  # gray-level difference that makes a pixel count as ink
+    slant_reach_ratio: float = 0.04  # farthest a slanted frame line may extend an edge (page side)
+    slant_min_cover: float = 0.5  # share of the box side the line must span
+    slant_min_length: float = 0.15  # shortest slanted line to follow, as a fraction of page width
+    slant_angles: tuple[float, float] = (3.0, 20.0)  # degrees off the axis; flatter is straight
 
     def refine(
         self, page: NDArray[np.uint8], panels: Sequence[DetectedPanel]
@@ -55,6 +64,8 @@ class EdgeSnapRefiner:
             return ()
         mask = contrast_mask(page, self.window, self.contrast)
         rects = [(p.bbox.x, p.bbox.y, p.bbox.right, p.bbox.bottom) for p in panels]
+        slants = self._slanted_lines(page)
+        rects = [self._follow_slants(rect, slants, mask.shape) for rect in rects]
         for _ in range(self.passes):
             changed = False
             for index in range(len(rects)):
@@ -67,6 +78,58 @@ class EdgeSnapRefiner:
             replace(p, bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0))
             for p, (x0, y0, x1, y1) in zip(panels, rects, strict=True)
         )
+
+    def _slanted_lines(self, page: NDArray[np.uint8]) -> list[tuple[int, int, int, int, bool]]:
+        """Long slanted straight lines as (x0, y0, x1, y1, near_horizontal)."""
+        gray = cv2.cvtColor(page, cv2.COLOR_RGB2GRAY)
+        width = gray.shape[1]
+        found = cv2.HoughLinesP(
+            cv2.Canny(gray, 60, 150),
+            1,
+            np.pi / 720,
+            150,
+            None,
+            int(width * self.slant_min_length),
+            15,
+        )
+        if found is None:
+            return []
+        low, high = self.slant_angles
+        lines = []
+        for x0, y0, x1, y1 in np.asarray(found).reshape(-1, 4).tolist():
+            angle = abs(np.degrees(np.arctan2(y1 - y0, x1 - x0)))
+            angle = min(angle, 180 - angle)  # 0 = horizontal, 90 = vertical
+            if low <= angle <= high:
+                lines.append((x0, y0, x1, y1, True))
+            elif low <= 90 - angle <= high:
+                lines.append((x0, y0, x1, y1, False))
+        return lines
+
+    def _follow_slants(
+        self,
+        rect: _Rect,
+        lines: Sequence[tuple[int, int, int, int, bool]],
+        shape: tuple[int, ...],
+    ) -> _Rect:
+        """Extend the top/bottom edge to the far end of a slanted frame line that crosses it.
+
+        Only near-horizontal lines are followed: slanted lines near the vertical are far more
+        often artwork (trees, buildings) than frames, and extending to them hurt on the corpus.
+        """
+        x0, y0, x1, y1 = rect
+        reach = shape[0] * self.slant_reach_ratio
+        slack = shape[1] * 0.01  # a Hough end may land a few pixels past the box side
+        top_edge, bottom_edge = y0, y1
+        for ax, ay, bx, by, flat in lines:
+            # A frame edge runs along most of the panel; shorter slants are artwork.
+            if not flat or abs(bx - ax) < self.slant_min_cover * (x1 - x0):
+                continue
+            (hx, hy), (lx, ly) = ((ax, ay), (bx, by)) if ay < by else ((bx, by), (ax, ay))
+            if hy < y0 <= ly and y0 - hy <= reach and x0 - slack <= hx <= x1 + slack:
+                top_edge = min(top_edge, hy)  # the high end of the slant pokes above the box
+            if hy <= y1 < ly and ly - y1 <= reach and x0 - slack <= lx <= x1 + slack:
+                bottom_edge = max(bottom_edge, ly)  # the low end pokes below it
+        return x0, top_edge, x1, bottom_edge
 
     def _grow(self, mask: NDArray[np.bool_], rects: list[_Rect], index: int) -> _Rect:
         x0, y0, x1, y1 = rects[index]

@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 from app.domain.models import ImageSize, ReadingDirection
 from app.services.analyzer import PanelAnalyzer
@@ -153,4 +154,34 @@ def test_the_analyzer_applies_the_refiner_and_reports_it_in_the_version() -> Non
     assert plain.panels[0].bbox.bottom == 430
     assert refined.panels[0].bbox.bottom == 460
     assert plain.version == "fake@7+xycut@3"
-    assert refined.version == "fake@7+edge-snap@1+xycut@3"
+    assert refined.version == "fake@7+edge-snap@2+xycut@3"
+
+
+def slanted_top_page() -> NDArray[np.uint8]:
+    """A panel whose top frame rises to the right: from y=500 at x=60 to y=380 at x=540."""
+    page = blank()
+    corners = np.array([[60, 500], [540, 380], [540, 740], [60, 740]], dtype=np.int32)
+    cv2.fillPoly(page, [corners], (150, 170, 200))
+    cv2.polylines(page, [corners], isClosed=True, color=(0, 0, 0), thickness=6)
+    # Hatched art of the panel above fills the space over the slant, so there is never a clean
+    # gutter for the ordinary edge snapping to stop at.
+    above = np.zeros((HEIGHT, WIDTH), dtype=np.uint8)
+    cv2.fillPoly(above, [np.array([[0, 0], [WIDTH, 0], [WIDTH, 356], [60, 476], [0, 476]])], 1)
+    for y in range(0, 500, 8):
+        page[y : y + 4][above[y : y + 4] == 1] = 20
+    return page
+
+
+def test_follows_a_slanted_top_frame_to_its_highest_corner() -> None:
+    # The detector put the top edge part-way along the slant, cutting off the right corner.
+    refined = EdgeSnapRefiner().refine(slanted_top_page(), [panel(60, 410, 480, 330)])
+    _, top, _, bottom = bounds(refined)
+    assert abs(top - 380) <= 8
+    assert abs(bottom - 740) <= 8
+
+
+def test_a_straight_top_edge_is_not_moved_by_the_slant_rule() -> None:
+    page = blank()
+    ink(page, 60, 300, 540, 740)
+    refined = EdgeSnapRefiner().refine(page, [panel(60, 300, 480, 440)])
+    assert bounds(refined) == (60, 300, 540, 740)

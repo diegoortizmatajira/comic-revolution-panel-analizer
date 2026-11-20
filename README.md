@@ -144,6 +144,8 @@ to run a post-processing step after any detector: each edge that cuts through in
 until it reaches a clean gutter. Where balloons sit in the gap between two panels with no clean
 gutter, each panel claims only the blobs that touch its own edge. It only ever grows a box, by at most 15% of the page side (`PANELS_REFINE_MAX_EXPAND`), and
 leaves an edge alone when no gutter is found in reach or a neighbouring panel is in the way.
+It also follows a long slanted top or bottom frame line to its far end (within 4% of the page height),
+so a panel with a slanted edge keeps its highest or lowest corner.
 `version` then includes `edge-snap@<n>`. Score it with `python -m app.evaluation --refine-edges`.
 Labels in the corpus are frame-tight, so it lowers strict (IoU 0.75) scores even when the grown
 box is the more useful one (see docs/evaluation.md).
