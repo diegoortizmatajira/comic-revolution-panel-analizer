@@ -130,7 +130,7 @@ a reader can fall back to showing the page. A single detected panel is returned 
 `method` names the detector that produced the result. Choose it with `PANELS_DETECTOR`:
 `projection` (default; gutter-based, works on colour), `classical` (contour-based), or the optional
 `ml` and `hybrid` detectors (see below). With `hybrid`, `method` is the one that answered that page.
-`projection` (version 4) also follows a slightly slanted gutter when no straight row or column is
+`projection` (version 5) also follows a slightly slanted gutter when no straight row or column is
 clean, and uses long straight frame lines to cut where there is no gutter at all and to set off
 title banners, which are returned as a first panel. Caption strips and balloons that sit between panels are shared between the panel
 above and the one below instead of being lost. Known limitations: panels with no gutter between them (art that bleeds into the next

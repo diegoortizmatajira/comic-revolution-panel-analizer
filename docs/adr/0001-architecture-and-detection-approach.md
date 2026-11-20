@@ -39,6 +39,11 @@
   the page edge (paper reachable from the border without crossing an edge, smoothed over the
   page), which fixed `western_fighters_6`, where stained paper made almost the whole page read as
   content. It is only a second attempt because on pages that already work it fragments titles.
+  The same retry also moves a panel's top or bottom edge out to a frame line that spans the
+  panel just beyond it (pale edges leave a box short of its own frame and cut the first lines of
+  a balloon); applied to every page that snap loosened boxes that were already right.
+  A panel there also grows up to the bottom of the panel above it across a small gap, since
+  what sits in it (a row's caption lines) hangs from the panel below.
   Pages whose frames are too broken for the lines to be found keep their banners and caption
   strips. The remaining failures are tracked in issue 11. These cases are what the ML detector
   is for.

@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import pytest
 from app.domain.models import ReadingDirection
+from app.services.detection.frames import FrameLines
 from app.services.detection.projection import ProjectionPanelDetector
 from app.services.image.decoder import ImageLimits, decode_image
 from app.services.ordering.xy_cut import XYCutOrdering
@@ -190,3 +191,32 @@ def test_full_bleed_art_touching_the_next_row_is_a_panel_not_a_banner() -> None:
 
 def test_stained_paper_page_is_cut_through_the_local_paper_colour() -> None:
     assert len(boxes(stained_page())) == 2
+
+
+def lines_at(*rows: tuple[int, int, int]) -> FrameLines:
+    return FrameLines(horizontal=list(rows), vertical=[], height=1000, width=800)
+
+
+def test_a_panel_edge_snaps_out_to_the_frame_line_just_beyond_it() -> None:
+    panel = [(300, 600, 50, 450)]  # y0, y1, x0, x1: pale top and bottom were trimmed
+    lines = lines_at((270, 40, 460), (625, 40, 460))
+    assert ProjectionPanelDetector._snap_to_frame_lines(panel, lines, 60) == [(270, 625, 50, 450)]
+
+
+def test_snapping_ignores_short_distant_and_neighbouring_lines() -> None:
+    panel, above = (300, 600, 50, 450), (100, 262, 50, 450)  # a panel whose bottom frame is y=262
+    lines = lines_at((270, 40, 120), (150, 40, 460), (262, 40, 460))
+    snapped = ProjectionPanelDetector._snap_to_frame_lines([above, panel], lines, 60)
+    assert snapped[1] == panel  # too short, too far, and the panel above's own frame
+
+
+def test_a_panel_grows_up_to_the_bottom_of_the_panel_above_across_a_small_gap() -> None:
+    above, below = (100, 400, 50, 450), (460, 800, 50, 450)  # a 60px gap holding caption lines
+    grown = ProjectionPanelDetector._grow_into_gap_above([above, below], 80)
+    assert grown == [above, (400, 800, 50, 450)]
+
+
+def test_a_large_gap_or_a_panel_beside_is_left_alone() -> None:
+    above, far, beside = (100, 400, 50, 450), (700, 900, 50, 450), (460, 800, 460, 860)
+    panels = [above, far, beside]
+    assert ProjectionPanelDetector._grow_into_gap_above(panels, 80) == panels

@@ -64,7 +64,7 @@ def _is_wide(region: _Region, page_width: int) -> bool:
 
 class ProjectionPanelDetector:
     name = "projection"
-    version = "4"
+    version = "5"
 
     def __init__(  # noqa: PLR0913
         self,
@@ -131,6 +131,9 @@ class ProjectionPanelDetector:
                 strips += lettering
         banner_area = self._banner_area_ratio * width * height
         kept = self._attach_strips(kept, strips, 0.02 * height, banner_area, loose=loose)
+        if loose:
+            kept = self._snap_to_frame_lines(kept, frames.lines, 0.06 * height)
+            kept = self._grow_into_gap_above(kept, 0.08 * height)
         return [
             DetectedPanel(
                 bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0),
@@ -195,6 +198,54 @@ class ProjectionPanelDetector:
             )
             if (union[1] - union[0]) * (union[3] - union[2]) >= banner_area:
                 result.append(union)
+        return result
+
+    @staticmethod
+    def _snap_to_frame_lines(
+        panels: list[_Region], lines: FrameLines, reach: float, min_cover: float = 0.7
+    ) -> list[_Region]:
+        """Move a panel's top or bottom edge out to the frame line just beyond it.
+
+        Pale panel edges (sky, white balloons near the paper colour) leave the box short of its
+        own frame, cutting the first lines of a balloon. A frame line that spans most of the
+        panel and lies within ``reach`` beyond the edge is the panel's frame. A line at or inside
+        a neighbouring panel's box is that panel's frame, not this one's.
+        """
+        result = list(panels)
+        for i, (y0, y1, x0, x1) in enumerate(panels):
+            others = [p for j, p in enumerate(panels) if j != i]
+            usable = [
+                y
+                for y, a, b in lines.horizontal
+                if min(b, x1) - max(a, x0) >= min_cover * (x1 - x0)
+                and not any(
+                    oy0 - 4 <= y <= oy1 + 4 and min(ox1, x1) > max(ox0, x0)
+                    for oy0, oy1, ox0, ox1 in others
+                )
+            ]
+            above = [y for y in usable if y0 - reach <= y < y0]
+            below = [y for y in usable if y1 < y <= y1 + reach]
+            result[i] = (min(above, default=y0), max(below, default=y1), x0, x1)
+        return result
+
+    @staticmethod
+    def _grow_into_gap_above(panels: list[_Region], max_gap: float) -> list[_Region]:
+        """Let a panel grow up to the bottom of the panel above it when the gap is small.
+
+        On a page that needed the second attempt, what lies between two stacked panels (the
+        caption lines of a row) hangs from the panel below, so that panel takes the whole gap.
+        """
+        result = list(panels)
+        for i, (y0, y1, x0, x1) in enumerate(panels):
+            gaps = [
+                y0 - oy1
+                for j, (_, oy1, ox0, ox1) in enumerate(panels)
+                if j != i
+                and 0 < y0 - oy1 <= max_gap
+                and min(x1, ox1) - max(x0, ox0) >= 0.3 * (x1 - x0)
+            ]
+            if gaps:
+                result[i] = (y0 - min(gaps), y1, x0, x1)
         return result
 
     @staticmethod

@@ -134,6 +134,18 @@ def test_western_fighters_6_reads_the_title_first_with_and_without_edge_snapping
         assert body.bbox.bottom <= min(p.bbox.bottom for p in bottom)
 
 
+def test_western_fighters_6_bottom_left_panel_takes_the_caption_above_it() -> None:
+    page = labelled("western_fighters_6")
+    for refiner in (None, EdgeSnapRefiner()):
+        result = PanelAnalyzer(ProjectionPanelDetector(), XYCutOrdering(), refiner).analyze(
+            page.image, page.direction
+        )
+        body, bottom_left = result.panels[1], result.panels[2]
+        # The caption lines under the big panel hang from the bottom row: its box starts where
+        # the big panel ends, so the caption (and the top of the first balloon) is inside it.
+        assert abs(bottom_left.bbox.y - body.bbox.bottom) <= 5
+
+
 def test_every_fixture_page_is_accounted_for() -> None:
     stems = {name.removesuffix(".jpg") for name in PUBLIC_DOMAIN_PAGES}
     assert stems == set(CORRECT_PAGES) | set(KNOWN_FAILURES)
