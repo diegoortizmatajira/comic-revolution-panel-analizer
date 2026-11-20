@@ -84,6 +84,13 @@
       "problemMatcher": []
     },
     {
+      "label": "Build Docker image (branch + date)",
+      "type": "shell",
+      "command": "docker build -t comic-revolution-panels:$(git branch --show-current | sed 's/[^A-Za-z0-9_.-]/-/g')-$(date +%Y%m%d) .",
+      "problemMatcher": [],
+      "detail": "Tags the image comic-revolution-panels:<current branch>-<YYYYMMDD>, with characters Docker tags do not allow (such as /) turned into -. For example feature/abc becomes comic-revolution-panels:feature-abc-20261119."
+    },
+    {
       "label": "Check all",
       "dependsOn": ["Lint", "Type check", "Test"],
       "dependsOrder": "sequence",
