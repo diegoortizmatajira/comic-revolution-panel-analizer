@@ -60,6 +60,31 @@ the frame.
 IoU cannot reward "no content is cropped", so judge the refiner by looking at the boxes, not by
 f1@75. A truth-coverage metric (share of each labelled box covered) would be the fair number.
 
+## Scoring caption claiming
+
+`--claim-captions` runs the caption claimer after every detector (it moves each panel's top edge up
+over the lettering that hangs above the frame, see README). The labels are frame-tight, so pages
+whose lettering sits above the frame carry a second list, `caption_panels`: the same panels in the
+same order with that lettering included. With the flag a page is scored against `caption_panels`
+when it has one and against `panels` otherwise; without the flag every page is scored against
+`panels`, so the committed baseline is unchanged.
+
+Nine pages carry `caption_panels` (the `captions` tag). They were made by running the claimer on the
+hand-made frame labels and then checking every box against the page by eye. Real pages, `--claim-captions`
+against without it (f1@75, with the model of ADR 0002):
+
+| detector | `captions` pages | all 23 real pages |
+|---|---|---|
+| `projection` | 0.81 to 0.93 | 0.75 to 0.76 |
+| `ml` | 0.88 to 0.97 | 0.79 to 0.79 |
+| `hybrid` | 0.93 to 0.95 | 0.85 to 0.81 |
+
+The `captions` rows now agree with what a reader sees. Across all real pages `hybrid` loses a little
+(0.85 to 0.81): the pages without a `caption_panels` list are still scored frame-tight, and the
+claimer also grows boxes on them wherever lettering touches a top edge. Exactly-right pages do not
+move (`page_acc` is 0.65, 0.65 and 0.83 on real pages, as before, for `projection`, `ml` and `hybrid`)
+except `ml`, which goes from 0.70 to 0.65 (the cause was not investigated).
+
 ## Label format
 
 A labelled page is an image plus a sibling `<name>.labels.json`:
@@ -87,6 +112,9 @@ A labelled page is an image plus a sibling `<name>.labels.json`:
   title. Where a caption straddles a frame line,
   use the frame line and say so in `notes`. Labels are good to a few pixels, which IoU 0.5
   absorbs.
+- Lettering above a frame (narration boxes, the first balloons) is outside the panel here. If you
+  also want it counted, add `caption_panels` (same panels, same order, with the lettering above
+  each frame included; only the top edge differs).
 - Spreads: label every panel of both pages, in reading order across the whole spread.
 - Open frames: when a panel has no frame line on a side, the box is the extent of its artwork, and
   balloons or captions floating outside that artwork are left out. Boxes on such pages are only
@@ -137,14 +165,15 @@ Read the **real** rows. Generated pages are cleaner than scans and flatter the a
 
 | detector | pages | f1@50 | f1@75 | order | page_acc | conf_auc |
 |---|---|---|---|---|---|---|
-| projection, real | 23 | 0.80 | 0.69 | 1.00 | 0.48 | 0.50 |
-| projection, synthetic | 11 | 0.97 | 0.92 | 0.96 | 0.64 | 0.50 |
-| classical, real | 23 | 0.35 | 0.27 | 0.94 | 0.04 | 0.82 |
+| projection, real | 23 | 0.90 | 0.75 | 1.00 | 0.65 | 0.50 |
+| projection, synthetic | 11 | 0.99 | 0.96 | 0.96 | 0.73 | 0.44 |
+| classical, real | 23 | 0.34 | 0.26 | 1.00 | 0.00 | - |
 | classical, synthetic | 11 | 0.94 | 0.86 | 0.96 | 0.55 | 0.52 |
 
-On real pages `projection` gets 11 of 23 pages exactly right, `classical` 1 of 23. Note that
-`classical`'s `sequence_confidence` separates right from wrong pages well (AUC 0.82), because it
-flags ambiguous layouts on most pages it gets wrong, while `projection`'s does not (0.50).
+On real pages `projection` gets 15 of 23 pages exactly right and `classical` none (`conf_auc` is
+undefined for `classical` because no real page is correct). With an ML model
+([ADR 0002](adr/0002-optional-ml-detector.md)), `hybrid` gets 19 of 23, `ml` alone 16. `projection`'s
+`sequence_confidence` does not separate right from wrong pages (AUC 0.50).
 
 Known weaknesses visible in the per-tag rows: pages with no gutter, double-page spreads (panels
 of both pages are ordered together, see #5), diagonal gutters for `projection`, and on real

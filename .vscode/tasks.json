@@ -2,29 +2,6 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Run server (LAN + demo page)",
-      "type": "shell",
-      "command": "uv run uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000 --reload",
-      "options": {
-        "env": {
-          "PANELS_API_KEYS": "dev-key",
-          "PANELS_ENABLE_DEMO_PAGE": "true",
-          "PANELS_LOG_JSON": "false"
-        }
-      },
-      "isBackground": true,
-      "problemMatcher": {
-        "pattern": { "regexp": "^$" },
-        "background": {
-          "activeOnStart": true,
-          "beginsPattern": "Will watch for changes",
-          "endsPattern": "Application startup complete"
-        }
-      },
-      "presentation": { "panel": "dedicated", "reveal": "always" },
-      "detail": "Serves on any hostname (LAN) and enables the demo page. Use this for testing on other devices."
-    },
-    {
       "label": "Run server (hybrid ML + demo page)",
       "type": "shell",
       "command": "uv run --extra ml uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000 --reload",
@@ -35,7 +12,8 @@
           "PANELS_LOG_JSON": "false",
           "PANELS_DETECTOR": "hybrid",
           "PANELS_ML_MODEL": "models/best.onnx",
-          "PANELS_REFINE_EDGES": "true"
+          "PANELS_REFINE_EDGES": "true",
+          "PANELS_CLAIM_CAPTIONS": "true"
         }
       },
       "isBackground": true,
@@ -48,7 +26,7 @@
         }
       },
       "presentation": { "panel": "dedicated", "reveal": "always" },
-      "detail": "Like the LAN task, but the detector is hybrid: projection first, the ONNX model in models/best.onnx when projection looks unreliable. The raw JSON in the demo page shows which one answered (\"method\")."
+      "detail": "Like the LAN task, but the detector is hybrid: projection first, the ONNX model in models/best.onnx when projection looks unreliable. Edge snapping and caption claiming are on, so boxes include the lettering above each frame. The raw JSON in the demo page shows which one answered (\"method\")."
     },
     {
       "label": "Test",

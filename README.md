@@ -158,6 +158,17 @@ so a panel with a slanted edge keeps its highest or lowest corner.
 Labels in the corpus are frame-tight, so it lowers strict (IoU 0.75) scores even when the grown
 box is the more useful one (see docs/evaluation.md).
 
+### Caption claiming (optional)
+
+Detectors return the frame of a panel, but in western comics the narration box and the first
+balloons often hang above it. Set `PANELS_CLAIM_CAPTIONS=true` and each panel's top edge moves up
+over the lettering that touches it, so a reader zoomed to the box does not lose the text. Lettering
+in the gap between two rows belongs to the row below it and is claimed once, and a top edge never
+moves past the panel above, or more than 12% of the page height. Only top edges move. It combines
+with `PANELS_REFINE_EDGES` (edge snapping runs first), and `version` then includes
+`caption-claim@<n>`. Score it with `python -m app.evaluation --claim-captions`; see
+docs/evaluation.md for the labels it is scored against.
+
 ### Optional ML detector
 
 The `ml` and `hybrid` detectors run a YOLO-style ONNX panel model. **No weights are included**:
