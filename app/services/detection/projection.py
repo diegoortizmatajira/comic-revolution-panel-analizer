@@ -44,6 +44,19 @@ class _Frames:
     cuts: list[int] = field(default_factory=list)
 
 
+def _bleeds(frames: _Frames, region: _Region) -> bool:
+    """True if the region runs off the page on at least three sides: full-bleed artwork.
+
+    Lettering sits on paper with margins; art that bleeds does not, so it is a panel even
+    though it has no frame lines of its own.
+    """
+    y0, y1, x0, x1 = region
+    height, width = frames.lines.height, frames.lines.width
+    tol_y, tol_x = 0.01 * height, 0.01 * width
+    edges = (y0 <= tol_y, y1 >= height - tol_y, x0 <= tol_x, x1 >= width - tol_x)
+    return sum(edges) >= 3
+
+
 class ProjectionPanelDetector:
     name = "projection"
     version = "3"
@@ -214,7 +227,7 @@ class ProjectionPanelDetector:
         """
         y0, y1, *_ = region
         touches_cut = any(abs(y - cut) <= 4 for cut in frames.cuts for y in (y0, y1))
-        return touches_cut and frames.lines.sides(region) <= 1
+        return touches_cut and frames.lines.sides(region) <= 1 and not _bleeds(frames, region)
 
     def _seam_split(self, sub: Mask) -> tuple[Mask, Mask] | None:
         """Cut a region along a slanted gutter: the cheapest path through the content mask.

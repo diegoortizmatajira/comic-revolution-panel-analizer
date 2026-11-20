@@ -170,3 +170,15 @@ def test_a_small_strip_at_the_top_goes_to_the_panel_below_but_a_banner_is_droppe
         (150, 300, 0, 100)
     ]
     assert ProjectionPanelDetector._attach_strips(panel, [banner], 10, 20_000) == panel
+
+
+def test_full_bleed_art_touching_the_next_row_is_a_panel_not_a_banner() -> None:
+    page = np.full((1200, 800, 3), 255, dtype=np.uint8)
+    ramp = np.linspace(60, 200, 420, dtype=np.uint8)[:, None]
+    page[0:420] = np.stack([ramp, ramp // 2, np.full_like(ramp, 90)], axis=2)  # art off the page
+    page[420:426, 60:740] = 0  # the next row's top frame, with no gutter above it
+    page[426:1140, 60:740] = (200, 170, 120)
+    page[426:1140, 60:66] = page[426:1140, 734:740] = 0
+    page[1134:1140, 60:740] = 0
+    found = boxes(page)
+    assert any(y == 0 and w >= 780 for _, y, w, _ in found), found
