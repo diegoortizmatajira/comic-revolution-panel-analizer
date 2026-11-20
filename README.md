@@ -130,9 +130,12 @@ a reader can fall back to showing the page. A single detected panel is returned 
 `method` names the detector that produced the result. Choose it with `PANELS_DETECTOR`:
 `projection` (default; gutter-based, works on colour), `classical` (contour-based), or the optional
 `ml` and `hybrid` detectors (see below). With `hybrid`, `method` is the one that answered that page.
-Both struggle when panels have no gutter between them, when gutters are slanted, or on
-dense pages where balloons cross gutters; those pages return fewer, larger panels, and
-a warning when only one is found.
+`projection` (version 2) also follows a slightly slanted gutter when no straight row or column is
+clean. Known limitations: panels with no gutter between them (art that bleeds into the next
+panel, open frames), title banners and caption strips that are counted as panels or merged into a
+neighbour, borderless panels on unevenly toned paper, and dense pages where balloons cross
+gutters. Those pages return fewer, larger panels, or extra ones, and a warning when only one is
+found. See `docs/evaluation.md` for per-page numbers.
 
 ### Edge snapping (optional)
 

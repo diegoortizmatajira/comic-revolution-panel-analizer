@@ -19,8 +19,15 @@
   column profiles. `classical` takes outer contours of content blobs on a grayscale
   image. Projection separated panels the contour detector merged on a dark, hand-framed
   page, but both fail where there is no gutter: touching panels, art that bleeds into
-  the next panel, diagonal or slanted gutters (no clean row/column exists) and dense
-  pages with balloons crossing gutters. These cases are what the ML detector is for.
+  the next panel and dense pages with balloons crossing gutters. Projection v2 adds a
+  fallback for slanted gutters: when no clean row or column exists it cuts along the
+  minimum-content path across the region, accepted only if it is nearly empty (up to 2%
+  blocked pixels, and then only if nearly straight). That fixed the diagonal and
+  slightly slanted pages but not frame-dependent ones (`nature_boy_4`,
+  `western_fighters_6`, `samples/002`): frame lines are broken by balloons and art, and a
+  simple long-line cut also splits panels through artwork (it broke `western_fighters_8`).
+  Those need frame-line grouping and a rule for dropping text-only regions (title banners,
+  caption strips). These cases are what the ML detector is for.
 - **Reading order:** recursive XY-cut honouring `ltr`/`rtl`. `sequence_confidence`
   measures layout ambiguity only (share of panels that could not be cut cleanly);
   per-panel `confidence` measures detection quality.
