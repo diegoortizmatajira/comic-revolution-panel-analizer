@@ -59,7 +59,9 @@ only: it was not committed or distributed**. "Pages exactly right" is the harnes
 ### Hybrid policy
 
 `projection` is distrusted, and the model asked, when its result has **fewer than 3 panels** or a
-panel whose long side is **at least 5 times its short side** (a caption strip or title banner).
+panel whose long side is **at least 5 times its short side** (a caption strip). A thin panel that
+lies wholly above every other panel is the title banner `projection` returns on purpose as a first
+panel, so it does not count: the model never returns titles and would only drop it.
 On the corpus these rules flag 9 of the 12 pages `projection` gets wrong and none of the 11 it
 gets right; the model's answer replaces `projection`'s when it finds at least one panel.
 

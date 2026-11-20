@@ -9,10 +9,10 @@ if TYPE_CHECKING:
     import numpy as np
     from numpy.typing import NDArray
 
-    from app.domain.models import Detection
+    from app.domain.models import DetectedPanel, Detection
     from app.domain.ports import PanelDetector
 
-VERSION = "1"  # bump when the policy or the selection rule changes
+VERSION = "2"  # bump when the policy or the selection rule changes (2: a title panel is exempt)
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +24,9 @@ class ReliabilityPolicy:
     * very few panels: a page with fewer than ``min_panels`` panels is usually a page where
       panels were merged into one (comic pages with one or two panels are rare);
     * a very thin panel: a box whose long side is at least ``max_aspect`` times its short side
-      is nearly always a caption strip or title banner counted as a panel.
+      is nearly always a caption strip counted as a panel. The one exception is a thin panel
+      that lies wholly above every other panel: that is the title banner the primary detector
+      returns on purpose as a first panel, and the ML model would only drop it.
 
     They are deliberately conservative: pages the primary gets right must not be sent to the
     fallback, so hybrid never does worse than the primary on them.
@@ -34,12 +36,20 @@ class ReliabilityPolicy:
     max_aspect: float = 5.0
 
     def distrusts(self, primary: Detection) -> bool:
-        if len(primary.panels) < self.min_panels:
+        panels = primary.panels
+        if len(panels) < self.min_panels:
             return True
-        return any(
-            max(p.bbox.width, p.bbox.height) >= self.max_aspect * min(p.bbox.width, p.bbox.height)
-            for p in primary.panels
-        )
+        return any(self._is_thin(p) and not _is_title(p, panels) for p in panels)
+
+    def _is_thin(self, panel: DetectedPanel) -> bool:
+        box = panel.bbox
+        return max(box.width, box.height) >= self.max_aspect * min(box.width, box.height)
+
+
+def _is_title(panel: DetectedPanel, panels: tuple[DetectedPanel, ...]) -> bool:
+    """A panel wholly above all the others: the title banner, not a caption strip between them."""
+    others = [p for p in panels if p is not panel]
+    return bool(others) and all(panel.bbox.bottom <= p.bbox.y for p in others)
 
 
 class HybridPanelDetector:
