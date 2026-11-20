@@ -149,6 +149,9 @@ until it reaches a clean gutter. Where balloons sit in the gap between two panel
 gutter, each panel claims only the blobs that touch its own edge. It only ever grows a box, by at most 15% of the page side (`PANELS_REFINE_MAX_EXPAND`), and
 leaves an edge alone when no gutter is found in reach, a neighbouring panel is in the way, or the
 edge already lies inside another panel's box (a title that overlaps the first panel).
+Panels with no frame of their own (a title above the first panel) are stretched to the margin box,
+the bounding box of the framed panels, and set against their neighbours, so they begin and end
+where the panels around them do.
 It also follows a long slanted top or bottom frame line to its far end (within 4% of the page height),
 so a panel with a slanted edge keeps its highest or lowest corner.
 `version` then includes `edge-snap@<n>`. Score it with `python -m app.evaluation --refine-edges`.

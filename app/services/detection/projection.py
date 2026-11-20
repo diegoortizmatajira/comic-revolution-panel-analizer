@@ -119,17 +119,15 @@ class ProjectionPanelDetector:
         text = [r for r in regions if self._is_text_only(frames, r)]
         kept = [r for r in big if r not in text]
         strips = list(text)
+        banner_area = self._banner_area_ratio * width * height
         if loose:
-            # Second attempt on a page the first pass could not cut: caption lines and lettering
-            # are small wide pieces, and title lettering that gutters split into lines sits as
-            # unframed pieces above the main panel. Gather both as strips.
+            # Second attempt on a page the first pass could not cut: caption lines are small wide
+            # pieces, so gather them as strips.
             strips += [r for r in regions if r not in big and r not in text and _is_wide(r, width)]
             if kept:
-                body = max(kept, key=lambda r: (r[1] - r[0]) * (r[3] - r[2]))
-                lettering = [r for r in kept if r[1] <= body[0] and frames.lines.sides(r) == 0]
-                kept = [r for r in kept if r not in lettering]
-                strips += lettering
-        banner_area = self._banner_area_ratio * width * height
+                kept, strips = self._gather_title(
+                    kept, strips, regions, frames, mask.shape, banner_area
+                )
         kept = self._attach_strips(kept, strips, 0.02 * height, banner_area, loose=loose)
         if loose:
             kept = self._snap_to_frame_lines(kept, frames.lines, 0.06 * height)
@@ -199,6 +197,49 @@ class ProjectionPanelDetector:
             if (union[1] - union[0]) * (union[3] - union[2]) >= banner_area:
                 result.append(union)
         return result
+
+    @staticmethod
+    def _gather_title(  # noqa: PLR0913, PLR0917
+        kept: list[_Region],
+        strips: list[_Region],
+        regions: list[_Region],
+        frames: _Frames,
+        shape: tuple[int, ...],
+        banner_area: float,
+    ) -> tuple[list[_Region], list[_Region]]:
+        """Make one title banner of everything unframed that lies above the main panel.
+
+        Lettering that gutters split into words and lines (with ascenders and descenders as
+        separate specks) would otherwise be lost, or its lower line attached to the main panel.
+        The banner lines up with the main panel's left edge, as a title does on the page.
+        """
+        height, width = shape[:2]
+        body = max(kept, key=lambda r: (r[1] - r[0]) * (r[3] - r[2]))
+        framed = [r for r in kept if r[1] <= body[0] and frames.lines.sides(r) > 0]
+        loose_kept = [r for r in kept if r[1] <= body[0] and r not in framed]
+        pieces = [
+            r
+            for r in regions
+            if r[1] <= body[0]
+            and r not in framed
+            and r[0] > 0.015 * height  # not the scan edge
+            and 0.01 * width < r[2]
+            and r[3] < 0.99 * width
+        ]
+        if not pieces:
+            return kept, strips
+        union = (
+            min(r[0] for r in pieces),
+            max(r[1] for r in pieces),
+            body[2]
+            if min(r[2] for r in pieces) >= body[2] - 0.03 * width
+            else min(r[2] for r in pieces),
+            max(r[3] for r in pieces),
+        )
+        if (union[1] - union[0]) * (union[3] - union[2]) < banner_area:
+            return kept, strips
+        remaining = [r for r in kept if r not in loose_kept] + [union]
+        return remaining, [r for r in strips if r not in pieces]
 
     @staticmethod
     def _snap_to_frame_lines(

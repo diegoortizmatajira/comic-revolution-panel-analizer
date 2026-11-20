@@ -44,6 +44,12 @@
   a balloon); applied to every page that snap loosened boxes that were already right.
   A panel there also grows up to the bottom of the panel above it across a small gap, since
   what sits in it (a row's caption lines) hangs from the panel below.
+  The edge refiner finally normalizes panels with no frame of their own: the margin box (the
+  bounding box of the framed panels, `margin.py`) gives a title above the first panel the same
+  left and right edges as the panels below and ends it where they begin. Only wide, short
+  panels are touched, and only when at least two panels are framed; applied to every unframed
+  panel it stretched ordinary panels on pages where frame detection fails and cost 15 points
+  of page accuracy with refinement on.
   Pages whose frames are too broken for the lines to be found keep their banners and caption
   strips. The remaining failures are tracked in issue 11. These cases are what the ML detector
   is for.

@@ -30,6 +30,8 @@ import numpy as np
 
 from app.domain.models import BoundingBox, DetectedPanel
 from app.services.detection.content import contrast_mask
+from app.services.detection.frames import FrameLines
+from app.services.detection.margin import normalize_unframed
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -43,7 +45,7 @@ _EDGES = ("top", "bottom", "left", "right")
 @dataclass(frozen=True, slots=True)
 class EdgeSnapRefiner:
     name: str = "edge-snap"
-    version: str = "3"  # bump when a change could alter the output
+    version: str = "5"  # bump when a change could alter the output
     max_expand_ratio: float = 0.15  # farthest an edge may move, as a fraction of the page side
     gap: int = 3  # ink-free lines that count as a gutter
     ink_ratio: float = 0.003  # fraction of a line that must be ink to count as content
@@ -74,6 +76,7 @@ class EdgeSnapRefiner:
                 rects[index] = grown
             if not changed:
                 break
+        rects = normalize_unframed(rects, FrameLines.find(page))
         return tuple(
             replace(p, bbox=BoundingBox(x=x0, y=y0, width=x1 - x0, height=y1 - y0))
             for p, (x0, y0, x1, y1) in zip(panels, rects, strict=True)

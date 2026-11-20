@@ -146,6 +146,17 @@ def test_western_fighters_6_bottom_left_panel_takes_the_caption_above_it() -> No
         assert abs(bottom_left.bbox.y - body.bbox.bottom) <= 5
 
 
+def test_western_fighters_6_title_lines_up_with_the_big_panel() -> None:
+    page = labelled("western_fighters_6")
+    for refiner in (None, EdgeSnapRefiner()):
+        result = PanelAnalyzer(ProjectionPanelDetector(), XYCutOrdering(), refiner).analyze(
+            page.image, page.direction
+        )
+        title, body = result.panels[0], result.panels[1]
+        assert title.bbox.x == body.bbox.x  # the title's left edge is the first row's
+        assert title.bbox.y < 100  # the whole lettering, ascenders included, is inside
+
+
 def test_every_fixture_page_is_accounted_for() -> None:
     stems = {name.removesuffix(".jpg") for name in PUBLIC_DOMAIN_PAGES}
     assert stems == set(CORRECT_PAGES) | set(KNOWN_FAILURES)
