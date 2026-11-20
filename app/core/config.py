@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # Farthest a refined edge may move, as a fraction of the page side.
     refine_max_expand: float = Field(default=0.15, gt=0, le=0.5)
 
+    # Extend each panel's top edge over the narration and balloons that hang above its frame.
+    claim_captions: bool = False
+
     # Optional ML detector (needs the `ml` extra and a model file you are allowed to use).
     ml_model: Path | None = None
     ml_input_size: int = Field(default=640, gt=0)

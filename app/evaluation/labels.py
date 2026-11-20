@@ -11,6 +11,7 @@ A labelled page is an image plus a sibling ``<name>.labels.json``:
       "panels": [{"x": 0.05, "y": 0.03, "width": 0.9, "height": 0.3}, ...]
     }
 
+``caption_panels`` (optional) is the same list with the lettering above each frame included.
 ``panels`` are boxes normalized to the image (0-1, origin top-left), listed in reading order
 for ``reading_direction``. Draft labels written by ``--propose`` carry ``"verified": false``
 and are ignored until a person has checked and corrected them.
@@ -64,6 +65,16 @@ class PageLabels(BaseModel):
     tags: list[str] = Field(default_factory=list)
     notes: str = ""
     panels: list[PanelLabel]
+    # Optional: the same panels, in the same order, with the lettering that hangs above each frame
+    # included. Scored instead of ``panels`` when caption claiming is on.
+    caption_panels: list[PanelLabel] | None = None
+
+    @model_validator(mode="after")
+    def _same_panels_with_captions(self) -> Self:
+        if self.caption_panels is not None and len(self.caption_panels) != len(self.panels):
+            msg = "caption_panels must list the same panels as panels"
+            raise ValueError(msg)
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +85,7 @@ class LabeledPage:
     panels: tuple[NormalizedBox, ...]  # ground truth, in reading order
     tags: frozenset[str]
     source: str  # "file" or "synthetic"
+    caption_panels: tuple[NormalizedBox, ...] | None = None  # ...with top captions, if labelled
 
 
 def labels_path(image: Path) -> Path:
@@ -116,6 +128,11 @@ def _load(folder: Path, image: Path, labels: PageLabels) -> LabeledPage:
         image=decoded,
         direction=labels.reading_direction,
         panels=tuple(p.to_box() for p in labels.panels),
+        caption_panels=(
+            None
+            if labels.caption_panels is None
+            else tuple(p.to_box() for p in labels.caption_panels)
+        ),
         tags=frozenset(labels.tags),
         source="file",
     )

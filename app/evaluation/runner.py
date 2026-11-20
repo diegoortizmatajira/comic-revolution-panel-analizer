@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from app.evaluation.metrics import PageResult, Prediction, Summary, score_page, summarize
 from app.services.analyzer import PanelAnalyzer
+from app.services.detection.captions import CaptionClaimer, ChainedRefiner
 from app.services.detection.refine import EdgeSnapRefiner
 from app.services.detection.registry import build_detector
 from app.services.ordering.xy_cut import XYCutOrdering
@@ -14,6 +15,7 @@ from app.services.ordering.xy_cut import XYCutOrdering
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from app.domain.ports import PanelRefiner
     from app.evaluation.labels import LabeledPage
     from app.services.detection.registry import MlConfig
 
@@ -33,10 +35,17 @@ def evaluate(
     ml: MlConfig | None = None,
     *,
     refine_edges: bool = False,
+    claim_captions: bool = False,
 ) -> DetectorReport:
     """Score one detector through the same analyzer and ordering the API uses."""
     detector = build_detector(detector_name, ml)
-    analyzer = PanelAnalyzer(detector, XYCutOrdering(), EdgeSnapRefiner() if refine_edges else None)
+    refiners: list[PanelRefiner] = []
+    if refine_edges:
+        refiners.append(EdgeSnapRefiner())
+    if claim_captions:
+        refiners.append(CaptionClaimer())
+    refiner = ChainedRefiner(*refiners) if len(refiners) > 1 else next(iter(refiners), None)
+    analyzer = PanelAnalyzer(detector, XYCutOrdering(), refiner)
     results: list[PageResult] = []
     for page in pages:
         analysis = analyzer.analyze(page.image, page.direction)
@@ -45,8 +54,9 @@ def evaluate(
             sequence_confidence=analysis.sequence_confidence,
             whole_page_fallback=analysis.whole_page_fallback,
         )
+        truth = page.caption_panels if claim_captions and page.caption_panels else page.panels
         page_tags = page.tags | {"real"} if page.source == "file" else page.tags
-        results.append(score_page(page.id, page_tags, prediction, page.panels))
+        results.append(score_page(page.id, page_tags, prediction, truth))
 
     tags = sorted({tag for result in results for tag in result.tags})
     return DetectorReport(

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.services.analyzer import PanelAnalyzer
+from app.services.detection.captions import CaptionClaimer, ChainedRefiner
 from app.services.detection.refine import EdgeSnapRefiner
 from app.services.detection.registry import MlConfig, build_detector
 from app.services.image.decoder import ImageLimits
@@ -15,7 +16,7 @@ from app.services.security import SlidingWindowRateLimiter, StaticApiKeyStore
 
 if TYPE_CHECKING:
     from app.core.config import Settings
-    from app.domain.ports import ApiKeyStore, ImageFetcher, RateLimiter
+    from app.domain.ports import ApiKeyStore, ImageFetcher, PanelRefiner, RateLimiter
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,17 +42,24 @@ def ml_config(settings: Settings) -> MlConfig | None:
     )
 
 
+def build_refiner(settings: Settings) -> PanelRefiner | None:
+    refiners: list[PanelRefiner] = []
+    if settings.refine_edges:
+        refiners.append(EdgeSnapRefiner(max_expand_ratio=settings.refine_max_expand))
+    if settings.claim_captions:
+        refiners.append(CaptionClaimer())
+    if len(refiners) > 1:
+        return ChainedRefiner(*refiners)
+    return refiners[0] if refiners else None
+
+
 def build_container(settings: Settings) -> Container:
     return Container(
         settings=settings,
         analyzer=PanelAnalyzer(
             build_detector(settings.detector, ml_config(settings)),
             XYCutOrdering(),
-            (
-                EdgeSnapRefiner(max_expand_ratio=settings.refine_max_expand)
-                if settings.refine_edges
-                else None
-            ),
+            build_refiner(settings),
         ),
         fetcher=UrlImageFetcher(
             max_bytes=settings.max_image_bytes,
